@@ -1,0 +1,311 @@
+// Configuration Service
+// Manages environment variables and application settings
+
+class ConfigService {
+  constructor() {
+    this.config = this.loadConfiguration();
+    this.validateConfiguration();
+  }
+
+  /**
+   * Loads configuration from environment variables
+   * @returns {Object} Configuration object
+   */
+  loadConfiguration() {
+    return {
+      // Application settings
+      app: {
+        mode: import.meta.env.VITE_APP_MODE || 'development',
+        debugMode: import.meta.env.VITE_DEBUG_MODE === 'true',
+        logLevel: import.meta.env.VITE_LOG_LEVEL || 'info'
+      },
+
+      // Feature flags
+      features: {
+        enableDemoMode: import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false',
+        enableRealAI: import.meta.env.VITE_ENABLE_REAL_AI === 'true',
+        enableVendorAPIs: import.meta.env.VITE_ENABLE_VENDOR_APIS === 'true',
+        enableCaching: import.meta.env.VITE_ENABLE_CACHING !== 'false',
+        enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
+        enableErrorReporting: import.meta.env.VITE_ENABLE_ERROR_REPORTING === 'true'
+      },
+
+      // OpenAI configuration
+      openai: {
+        apiKey: import.meta.env.VITE_OPENAI_API_KEY || 
+                (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : null),
+        apiBase: import.meta.env.VITE_OPENAI_API_BASE || 
+                 (typeof process !== 'undefined' ? process.env.OPENAI_API_BASE : null) ||
+                 'https://api.openai.com/v1',
+        model: 'gpt-4o'
+      },
+
+      // Parts database configuration
+      partsDatabase: {
+        apiEndpoint: import.meta.env.VITE_PARTS_API_ENDPOINT,
+        apiKey: import.meta.env.VITE_PARTS_API_KEY
+      },
+
+      // Vendor API configurations
+      vendors: {
+        repairClinic: {
+          apiUrl: import.meta.env.VITE_REPAIRCLINIC_API_URL,
+          apiKey: import.meta.env.VITE_REPAIRCLINIC_API_KEY
+        },
+        partSelect: {
+          apiUrl: import.meta.env.VITE_PARTSELECT_API_URL,
+          apiKey: import.meta.env.VITE_PARTSELECT_API_KEY
+        },
+        appliancePartsPros: {
+          apiUrl: import.meta.env.VITE_APPLIANCEPARTSPROS_API_URL,
+          apiKey: import.meta.env.VITE_APPLIANCEPARTSPROS_API_KEY
+        },
+        encompassSupply: {
+          apiUrl: import.meta.env.VITE_ENCOMPASS_API_URL,
+          apiKey: import.meta.env.VITE_ENCOMPASS_API_KEY
+        }
+      },
+
+      // Cache settings
+      cache: {
+        timeout: parseInt(import.meta.env.VITE_CACHE_TIMEOUT) || 900000, // 15 minutes
+        maxSize: 100 // Maximum number of cached items
+      },
+
+      // Analytics configuration
+      analytics: {
+        googleAnalyticsId: import.meta.env.VITE_GOOGLE_ANALYTICS_ID,
+        sentryDsn: import.meta.env.VITE_SENTRY_DSN
+      },
+
+      // API timeouts and limits
+      api: {
+        timeout: 10000, // 10 seconds
+        retries: 3,
+        rateLimitDelay: 1000 // 1 second between requests
+      }
+    };
+  }
+
+  /**
+   * Validates the configuration and logs warnings for missing keys
+   */
+  validateConfiguration() {
+    const warnings = [];
+    const errors = [];
+
+    // Check OpenAI configuration
+    if (this.config.features.enableRealAI && !this.config.openai.apiKey) {
+      warnings.push('OpenAI API key not found. AI features will use demo mode.');
+    }
+
+    // Check vendor configurations
+    if (this.config.features.enableVendorAPIs) {
+      const vendorKeys = Object.entries(this.config.vendors);
+      const missingVendors = vendorKeys.filter(([_, config]) => !config.apiKey);
+      
+      if (missingVendors.length > 0) {
+        warnings.push(`Missing API keys for vendors: ${missingVendors.map(([name]) => name).join(', ')}. These vendors will use mock data.`);
+      }
+    }
+
+    // Log warnings and errors
+    if (this.config.app.debugMode) {
+      warnings.forEach(warning => console.warn('Config Warning:', warning));
+      errors.forEach(error => console.error('Config Error:', error));
+    }
+
+    this.configWarnings = warnings;
+    this.configErrors = errors;
+  }
+
+  /**
+   * Gets a configuration value by path
+   * @param {string} path - Dot-separated path to config value
+   * @param {*} defaultValue - Default value if not found
+   * @returns {*} Configuration value
+   */
+  get(path, defaultValue = null) {
+    const keys = path.split('.');
+    let value = this.config;
+
+    for (const key of keys) {
+      if (value && typeof value === 'object' && key in value) {
+        value = value[key];
+      } else {
+        return defaultValue;
+      }
+    }
+
+    return value;
+  }
+
+  /**
+   * Sets a configuration value by path
+   * @param {string} path - Dot-separated path to config value
+   * @param {*} value - Value to set
+   */
+  set(path, value) {
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    let target = this.config;
+
+    for (const key of keys) {
+      if (!target[key] || typeof target[key] !== 'object') {
+        target[key] = {};
+      }
+      target = target[key];
+    }
+
+    target[lastKey] = value;
+  }
+
+  /**
+   * Checks if a feature is enabled
+   * @param {string} featureName - Name of the feature
+   * @returns {boolean} Whether the feature is enabled
+   */
+  isFeatureEnabled(featureName) {
+    return this.get(`features.${featureName}`, false);
+  }
+
+  /**
+   * Gets the current environment mode
+   * @returns {string} Environment mode (development, production, etc.)
+   */
+  getMode() {
+    return this.config.app.mode;
+  }
+
+  /**
+   * Checks if running in development mode
+   * @returns {boolean} Whether in development mode
+   */
+  isDevelopment() {
+    return this.config.app.mode === 'development';
+  }
+
+  /**
+   * Checks if running in production mode
+   * @returns {boolean} Whether in production mode
+   */
+  isProduction() {
+    return this.config.app.mode === 'production';
+  }
+
+  /**
+   * Gets API configuration for a specific service
+   * @param {string} serviceName - Name of the service
+   * @returns {Object} API configuration
+   */
+  getAPIConfig(serviceName) {
+    switch (serviceName) {
+      case 'openai':
+        return this.config.openai;
+      case 'partsDatabase':
+        return this.config.partsDatabase;
+      default:
+        return this.config.vendors[serviceName] || null;
+    }
+  }
+
+  /**
+   * Gets all vendor configurations
+   * @returns {Object} Vendor configurations
+   */
+  getVendorConfigs() {
+    return this.config.vendors;
+  }
+
+  /**
+   * Gets cache configuration
+   * @returns {Object} Cache configuration
+   */
+  getCacheConfig() {
+    return this.config.cache;
+  }
+
+  /**
+   * Gets analytics configuration
+   * @returns {Object} Analytics configuration
+   */
+  getAnalyticsConfig() {
+    return this.config.analytics;
+  }
+
+  /**
+   * Gets API timeout and retry settings
+   * @returns {Object} API settings
+   */
+  getAPISettings() {
+    return this.config.api;
+  }
+
+  /**
+   * Gets configuration warnings
+   * @returns {Array} Array of warning messages
+   */
+  getWarnings() {
+    return this.configWarnings || [];
+  }
+
+  /**
+   * Gets configuration errors
+   * @returns {Array} Array of error messages
+   */
+  getErrors() {
+    return this.configErrors || [];
+  }
+
+  /**
+   * Logs current configuration (for debugging)
+   */
+  logConfiguration() {
+    if (this.config.app.debugMode) {
+      console.group('PartFinder Pro Configuration');
+      console.log('Mode:', this.config.app.mode);
+      console.log('Features:', this.config.features);
+      console.log('OpenAI configured:', !!this.config.openai.apiKey);
+      console.log('Vendors configured:', Object.entries(this.config.vendors)
+        .filter(([_, config]) => config.apiKey)
+        .map(([name]) => name));
+      console.log('Warnings:', this.configWarnings);
+      console.log('Errors:', this.configErrors);
+      console.groupEnd();
+    }
+  }
+
+  /**
+   * Reloads configuration from environment
+   */
+  reload() {
+    this.config = this.loadConfiguration();
+    this.validateConfiguration();
+  }
+
+  /**
+   * Gets a sanitized version of config for client-side logging
+   * @returns {Object} Sanitized configuration
+   */
+  getSanitizedConfig() {
+    const sanitized = JSON.parse(JSON.stringify(this.config));
+    
+    // Remove sensitive information
+    if (sanitized.openai) {
+      sanitized.openai.apiKey = sanitized.openai.apiKey ? '[CONFIGURED]' : '[NOT SET]';
+    }
+    
+    Object.keys(sanitized.vendors || {}).forEach(vendor => {
+      if (sanitized.vendors[vendor].apiKey) {
+        sanitized.vendors[vendor].apiKey = '[CONFIGURED]';
+      }
+    });
+
+    return sanitized;
+  }
+}
+
+// Export singleton instance
+export const configService = new ConfigService();
+export default configService;
+
