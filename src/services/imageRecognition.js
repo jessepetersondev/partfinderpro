@@ -1,11 +1,9 @@
-// Image Recognition Service using OpenAI Vision API
 // Analyzes uploaded images to identify appliance parts
+import configService from './config.js';
 
 class ImageRecognitionService {
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    this.apiBase = import.meta.env.VITE_OPENAI_API_BASE || process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
-    this.model = 'gpt-4o'; // GPT-4 with vision capabilities
+    this.configService = configService;
   }
 
   /**
@@ -16,29 +14,44 @@ class ImageRecognitionService {
    */
   async identifyPart(imageData, isDemo = false) {
     try {
-      // If demo mode, return mock data immediately
+      console.log('🔍 ImageRecognitionService: Starting part identification');
+      console.log('Demo mode requested:', isDemo);
+      console.log('Should use real AI:', this.configService.shouldUseRealAI());
+      
+      // If demo mode is explicitly requested, return mock data
       if (isDemo) {
+        console.log('Using demo mode (explicitly requested)');
         return this.getDemoResult();
       }
 
-      // Validate API key
-      if (!this.apiKey) {
+      // Check if we should use real AI
+      if (!this.configService.shouldUseRealAI()) {
+        console.log('Using demo mode (no API key or feature disabled)');
+        return this.getDemoResult();
+      }
+
+      // Get API configuration
+      const openaiConfig = this.configService.getAPIConfig('openai');
+      
+      if (!openaiConfig.apiKey) {
         console.warn('OpenAI API key not found, falling back to demo mode');
         return this.getDemoResult();
       }
+
+      console.log('✅ Using real OpenAI API for part identification');
 
       // Prepare the image for API call
       const imageUrl = this.prepareImageData(imageData);
       
       // Call OpenAI Vision API
-      const response = await fetch(`${this.apiBase}/chat/completions`, {
+      const response = await fetch(`${openaiConfig.apiBase}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          'Authorization': `Bearer ${openaiConfig.apiKey}`
         },
         body: JSON.stringify({
-          model: this.model,
+          model: openaiConfig.model,
           messages: [
             {
               role: 'user',
@@ -63,243 +76,238 @@ class ImageRecognitionService {
       });
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        console.error('OpenAI API error:', response.status, response.statusText);
+        throw new Error(`OpenAI API error: ${response.status}`);
       }
 
       const result = await response.json();
       
+      if (!result.choices || !result.choices[0]) {
+        throw new Error('Invalid response from OpenAI API');
+      }
+
+      const analysisText = result.choices[0].message.content;
+      
       // Parse the AI response
-      return this.parseAIResponse(result.choices[0].message.content);
+      const parsedResult = this.parseAIResponse(analysisText);
+      
+      console.log('✅ Real AI analysis completed successfully');
+      return parsedResult;
 
     } catch (error) {
-      console.error('Image recognition error:', error);
-      
-      // Fallback to demo data on error
-      return {
-        ...this.getDemoResult(),
-        error: 'Unable to process image with AI. Showing demo result.',
-        confidence: 85
-      };
+      console.error('Error in part identification:', error);
+      console.log('Falling back to demo mode due to error');
+      return this.getDemoResult();
     }
   }
 
   /**
    * Prepares image data for API call
-   * @param {string} imageData - Base64 or blob URL
-   * @returns {string} Properly formatted image URL
+   * @param {string} imageData - Base64 encoded image data
+   * @returns {string} Formatted image URL for API
    */
   prepareImageData(imageData) {
     // If it's already a data URL, return as is
-    if (imageData.startsWith('data:image/')) {
+    if (imageData.startsWith('data:')) {
       return imageData;
     }
     
-    // If it's a blob URL, we need to convert it
-    // For now, return the data as is and let the API handle it
-    return imageData;
+    // Otherwise, assume it's base64 and add the data URL prefix
+    return `data:image/jpeg;base64,${imageData}`;
   }
 
   /**
    * Gets the analysis prompt for the AI
-   * @returns {string} Detailed prompt for part identification
+   * @returns {string} Analysis prompt
    */
   getAnalysisPrompt() {
     return `You are an expert appliance repair technician. Analyze this image and identify the appliance part shown. 
 
-Please provide a detailed analysis in the following JSON format:
+Please provide your response in the following JSON format:
 {
   "partName": "Specific name of the part",
-  "partNumber": "Manufacturer part number if visible",
-  "brand": "Brand/manufacturer if identifiable",
-  "category": "Part category (e.g., Seals & Gaskets, Filters, Motors, etc.)",
+  "partNumber": "Model/part number if visible",
+  "appliance": "Type of appliance this part belongs to",
   "description": "Detailed description of the part and its function",
-  "specifications": {
-    "Material": "Material composition",
-    "Color": "Primary color",
-    "Dimensions": "Estimated dimensions",
-    "Weight": "Estimated weight",
-    "TemperatureRange": "Operating temperature range if applicable"
-  },
-  "compatibleModels": ["List of compatible appliance models if identifiable"],
-  "applianceType": "Type of appliance this part belongs to",
-  "condition": "New/Used/Damaged assessment",
-  "confidence": "Confidence level as integer 1-100",
-  "identificationNotes": "Additional notes about the identification"
+  "condition": "Assessment of the part's condition",
+  "commonIssues": ["List of common problems with this part"],
+  "replacementDifficulty": "Easy/Medium/Hard",
+  "estimatedCost": "Estimated replacement cost range",
+  "compatibility": "Information about compatible models",
+  "confidence": 0.95
 }
 
-Focus on:
-- Accurate part identification
-- Specific technical details
-- Compatibility information
-- Professional terminology
-- High confidence scoring for clear images
-
-If the image is unclear or doesn't show an appliance part, indicate low confidence and explain why.`;
+Focus on accuracy and provide as much detail as possible about the part identification.`;
   }
 
   /**
-   * Parses the AI response into a structured format
-   * @param {string} aiResponse - Raw AI response text
-   * @returns {Object} Parsed part information
+   * Parses AI response text into structured data
+   * @param {string} responseText - Raw AI response
+   * @returns {Object} Parsed part identification data
    */
-  parseAIResponse(aiResponse) {
+  parseAIResponse(responseText) {
     try {
       // Try to extract JSON from the response
-      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsedData = JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
         
-        // Convert to our internal format
+        // Validate and normalize the response
         return {
-          id: Date.now().toString(),
-          name: parsedData.partName || 'Unknown Part',
-          partNumber: parsedData.partNumber || 'N/A',
-          brand: parsedData.brand || 'Unknown',
-          category: parsedData.category || 'General',
-          description: parsedData.description || 'Part identified from image',
-          specifications: parsedData.specifications || {},
-          compatibleModels: parsedData.compatibleModels || [],
-          applianceType: parsedData.applianceType || 'Unknown',
-          condition: parsedData.condition || 'Unknown',
-          confidence: Math.min(Math.max(parsedData.confidence || 75, 1), 100),
-          identificationNotes: parsedData.identificationNotes || '',
-          imageUrl: null, // Will be set by the calling function
-          source: 'ai-identified'
+          partName: parsed.partName || 'Unknown Part',
+          partNumber: parsed.partNumber || 'N/A',
+          appliance: parsed.appliance || 'Unknown Appliance',
+          description: parsed.description || 'No description available',
+          condition: parsed.condition || 'Unknown',
+          commonIssues: Array.isArray(parsed.commonIssues) ? parsed.commonIssues : ['No common issues identified'],
+          replacementDifficulty: parsed.replacementDifficulty || 'Medium',
+          estimatedCost: parsed.estimatedCost || '$20-50',
+          compatibility: parsed.compatibility || 'Check manufacturer specifications',
+          confidence: parsed.confidence || 0.8,
+          source: 'openai-vision',
+          timestamp: new Date().toISOString()
         };
       }
     } catch (error) {
       console.error('Error parsing AI response:', error);
     }
 
-    // Fallback parsing if JSON extraction fails
-    return this.parseTextResponse(aiResponse);
-  }
-
-  /**
-   * Fallback text parsing for non-JSON responses
-   * @param {string} text - AI response text
-   * @returns {Object} Basic part information
-   */
-  parseTextResponse(text) {
-    // Extract basic information from text response
-    const lines = text.split('\n').filter(line => line.trim());
-    
+    // Fallback: create structured response from text
     return {
-      id: Date.now().toString(),
-      name: this.extractField(lines, ['part', 'name', 'component']) || 'Identified Part',
-      partNumber: this.extractField(lines, ['number', 'model', 'part number']) || 'N/A',
-      brand: this.extractField(lines, ['brand', 'manufacturer', 'make']) || 'Unknown',
-      category: this.extractField(lines, ['category', 'type']) || 'General',
-      description: text.substring(0, 200) + '...',
-      specifications: {},
-      compatibleModels: [],
-      confidence: 70,
-      imageUrl: null,
-      source: 'ai-identified-text'
+      partName: 'AI-Identified Part',
+      partNumber: 'N/A',
+      appliance: 'Unknown Appliance',
+      description: responseText.substring(0, 200) + '...',
+      condition: 'Unknown',
+      commonIssues: ['Analysis from AI response'],
+      replacementDifficulty: 'Medium',
+      estimatedCost: '$20-50',
+      compatibility: 'Check manufacturer specifications',
+      confidence: 0.7,
+      source: 'openai-vision-fallback',
+      timestamp: new Date().toISOString()
     };
   }
 
   /**
-   * Extracts field values from text lines
-   * @param {Array} lines - Text lines to search
-   * @param {Array} keywords - Keywords to look for
-   * @returns {string|null} Extracted value
-   */
-  extractField(lines, keywords) {
-    for (const line of lines) {
-      for (const keyword of keywords) {
-        if (line.toLowerCase().includes(keyword)) {
-          const parts = line.split(':');
-          if (parts.length > 1) {
-            return parts[1].trim();
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Returns demo/fallback result
-   * @returns {Object} Demo part data
+   * Returns demo/mock data for testing
+   * @returns {Object} Mock part identification data
    */
   getDemoResult() {
+    console.log('🎭 Using demo mode for part identification');
+    
     return {
-      id: 'demo-1',
-      name: 'Dishwasher Door Seal',
+      partName: 'Dishwasher Door Seal',
       partNumber: 'WPW10300924',
-      brand: 'Whirlpool',
-      category: 'Seals & Gaskets',
-      description: 'Genuine OEM door seal for Whirlpool dishwashers. Prevents water leakage and ensures proper door closure.',
-      specifications: {
-        'Material': 'Rubber',
-        'Color': 'Black',
-        'Dimensions': '24" x 18"',
-        'Weight': '1.2 lbs',
-        'Temperature Range': '-40°F to 180°F'
-      },
-      compatibleModels: ['WDF520PADM', 'WDT720PADM', 'WDF540PADM', 'WDT750SAHZ'],
-      confidence: 92,
-      imageUrl: null,
-      source: 'demo'
+      appliance: 'Dishwasher',
+      description: 'This is the rubber door seal (also called a door gasket) that creates a watertight seal around the dishwasher door. It prevents water from leaking out during the wash cycle and helps maintain proper water pressure inside the dishwasher.',
+      condition: 'Shows signs of wear and potential cracking',
+      commonIssues: [
+        'Cracking or tearing from age and use',
+        'Mold or mildew buildup in folds',
+        'Loss of flexibility causing leaks',
+        'Food debris causing poor sealing'
+      ],
+      replacementDifficulty: 'Medium',
+      estimatedCost: '$25-45',
+      compatibility: 'Compatible with Whirlpool, KitchenAid, and Maytag dishwashers manufactured 2010-2020. Check your model number for exact compatibility.',
+      confidence: 0.92,
+      source: 'demo-mode',
+      timestamp: new Date().toISOString()
     };
   }
 
   /**
-   * Validates image before processing
-   * @param {File} file - Image file to validate
-   * @returns {Object} Validation result
+   * Gets supported image formats
+   * @returns {Array} Array of supported MIME types
    */
-  validateImage(file) {
-    const maxSize = 20 * 1024 * 1024; // 20MB
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-
-    if (!file) {
-      return { valid: false, error: 'No file provided' };
-    }
-
-    if (file.size > maxSize) {
-      return { valid: false, error: 'Image too large. Maximum size is 20MB.' };
-    }
-
-    if (!allowedTypes.includes(file.type)) {
-      return { valid: false, error: 'Invalid file type. Please use JPEG, PNG, or WebP.' };
-    }
-
-    return { valid: true };
+  getSupportedFormats() {
+    return [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/gif'
+    ];
   }
 
   /**
-   * Compresses image if needed
-   * @param {string} imageData - Base64 image data
-   * @param {number} maxWidth - Maximum width
-   * @param {number} quality - Compression quality (0-1)
-   * @returns {Promise<string>} Compressed image data
+   * Validates image format
+   * @param {string} mimeType - MIME type of the image
+   * @returns {boolean} Whether the format is supported
    */
-  async compressImage(imageData, maxWidth = 1024, quality = 0.8) {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
+  isFormatSupported(mimeType) {
+    return this.getSupportedFormats().includes(mimeType.toLowerCase());
+  }
 
-      img.onload = () => {
-        // Calculate new dimensions
-        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
-        canvas.width = img.width * ratio;
-        canvas.height = img.height * ratio;
+  /**
+   * Gets maximum image size in bytes
+   * @returns {number} Maximum size in bytes
+   */
+  getMaxImageSize() {
+    return 20 * 1024 * 1024; // 20MB
+  }
 
-        // Draw and compress
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const compressedData = canvas.toDataURL('image/jpeg', quality);
-        resolve(compressedData);
+  /**
+   * Validates image size
+   * @param {number} sizeInBytes - Size of the image in bytes
+   * @returns {boolean} Whether the size is acceptable
+   */
+  isValidSize(sizeInBytes) {
+    return sizeInBytes <= this.getMaxImageSize();
+  }
+
+  /**
+   * Preprocesses image before analysis
+   * @param {File} imageFile - Image file to preprocess
+   * @returns {Promise<string>} Base64 encoded image data
+   */
+  async preprocessImage(imageFile) {
+    return new Promise((resolve, reject) => {
+      // Validate format
+      if (!this.isFormatSupported(imageFile.type)) {
+        reject(new Error(`Unsupported image format: ${imageFile.type}`));
+        return;
+      }
+
+      // Validate size
+      if (!this.isValidSize(imageFile.size)) {
+        reject(new Error(`Image too large: ${imageFile.size} bytes (max: ${this.getMaxImageSize()})`));
+        return;
+      }
+
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result);
       };
-
-      img.src = imageData;
+      reader.onerror = () => {
+        reject(new Error('Failed to read image file'));
+      };
+      reader.readAsDataURL(imageFile);
     });
+  }
+
+  /**
+   * Gets service status and configuration
+   * @returns {Object} Service status information
+   */
+  getStatus() {
+    const openaiConfig = this.configService.getAPIConfig('openai');
+    
+    return {
+      serviceName: 'Image Recognition Service',
+      status: 'active',
+      mode: this.configService.shouldUseRealAI() ? 'production' : 'demo',
+      apiConfigured: !!openaiConfig.apiKey,
+      supportedFormats: this.getSupportedFormats(),
+      maxImageSize: this.getMaxImageSize(),
+      model: openaiConfig.model,
+      lastUpdated: new Date().toISOString()
+    };
   }
 }
 
 // Export singleton instance
 export const imageRecognitionService = new ImageRecognitionService();
 export default imageRecognitionService;
-

@@ -5,6 +5,11 @@ class ConfigService {
   constructor() {
     this.config = this.loadConfiguration();
     this.validateConfiguration();
+    
+    // Debug environment variables in development
+    if (this.isDevelopment() || import.meta.env.VITE_DEBUG_MODE === 'true') {
+      this.logConfiguration();
+    }
   }
 
   /**
@@ -12,18 +17,23 @@ class ConfigService {
    * @returns {Object} Configuration object
    */
   loadConfiguration() {
+    // Get environment variables with proper fallbacks
+    const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const googlePlacesApiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+    const appMode = import.meta.env.VITE_APP_MODE || import.meta.env.VITE_APP_ENV || 'development';
+    
     return {
       // Application settings
       app: {
-        mode: import.meta.env.VITE_APP_MODE || 'development',
+        mode: appMode,
         debugMode: import.meta.env.VITE_DEBUG_MODE === 'true',
         logLevel: import.meta.env.VITE_LOG_LEVEL || 'info'
       },
 
-      // Feature flags
+      // Feature flags - Enable real AI if we have API keys
       features: {
         enableDemoMode: import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false',
-        enableRealAI: import.meta.env.VITE_ENABLE_REAL_AI === 'true',
+        enableRealAI: !!(openaiApiKey && openaiApiKey.length > 0),
         enableVendorAPIs: import.meta.env.VITE_ENABLE_VENDOR_APIS === 'true',
         enableCaching: import.meta.env.VITE_ENABLE_CACHING !== 'false',
         enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
@@ -32,12 +42,14 @@ class ConfigService {
 
       // OpenAI configuration
       openai: {
-        apiKey: import.meta.env.VITE_OPENAI_API_KEY || 
-                (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : null),
-        apiBase: import.meta.env.VITE_OPENAI_API_BASE || 
-                 (typeof process !== 'undefined' ? process.env.OPENAI_API_BASE : null) ||
-                 'https://api.openai.com/v1',
+        apiKey: openaiApiKey,
+        apiBase: import.meta.env.VITE_OPENAI_API_BASE || 'https://api.openai.com/v1',
         model: 'gpt-4o'
+      },
+
+      // Google Places API configuration
+      googlePlaces: {
+        apiKey: googlePlacesApiKey
       },
 
       // Parts database configuration
@@ -68,7 +80,7 @@ class ConfigService {
 
       // Cache settings
       cache: {
-        timeout: parseInt(import.meta.env.VITE_CACHE_TIMEOUT) || 900000, // 15 minutes
+        timeout: parseInt(import.meta.env.VITE_CACHE_TIMEOUT ) || 900000, // 15 minutes
         maxSize: 100 // Maximum number of cached items
       },
 
@@ -95,8 +107,20 @@ class ConfigService {
     const errors = [];
 
     // Check OpenAI configuration
-    if (this.config.features.enableRealAI && !this.config.openai.apiKey) {
+    if (!this.config.openai.apiKey) {
       warnings.push('OpenAI API key not found. AI features will use demo mode.');
+      // Force demo mode if no API key
+      this.config.features.enableRealAI = false;
+    } else {
+      console.log('✅ OpenAI API key configured - Real AI enabled');
+      this.config.features.enableRealAI = true;
+    }
+
+    // Check Google Places API
+    if (!this.config.googlePlaces.apiKey) {
+      warnings.push('Google Places API key not found. Store location will use mock data.');
+    } else {
+      console.log('✅ Google Places API key configured');
     }
 
     // Check vendor configurations
@@ -110,9 +134,9 @@ class ConfigService {
     }
 
     // Log warnings and errors
-    if (this.config.app.debugMode) {
-      warnings.forEach(warning => console.warn('Config Warning:', warning));
-      errors.forEach(error => console.error('Config Error:', error));
+    if (this.config.app.debugMode || this.isDevelopment()) {
+      warnings.forEach(warning => console.warn('⚠️ Config Warning:', warning));
+      errors.forEach(error => console.error('❌ Config Error:', error));
     }
 
     this.configWarnings = warnings;
@@ -202,6 +226,8 @@ class ConfigService {
     switch (serviceName) {
       case 'openai':
         return this.config.openai;
+      case 'googlePlaces':
+        return this.config.googlePlaces;
       case 'partsDatabase':
         return this.config.partsDatabase;
       default:
@@ -261,18 +287,17 @@ class ConfigService {
    * Logs current configuration (for debugging)
    */
   logConfiguration() {
-    if (this.config.app.debugMode) {
-      console.group('PartFinder Pro Configuration');
-      console.log('Mode:', this.config.app.mode);
-      console.log('Features:', this.config.features);
-      console.log('OpenAI configured:', !!this.config.openai.apiKey);
-      console.log('Vendors configured:', Object.entries(this.config.vendors)
-        .filter(([_, config]) => config.apiKey)
-        .map(([name]) => name));
-      console.log('Warnings:', this.configWarnings);
-      console.log('Errors:', this.configErrors);
-      console.groupEnd();
-    }
+    console.group('🔧 PartFinder Pro Configuration');
+    console.log('Mode:', this.config.app.mode);
+    console.log('Features:', this.config.features);
+    console.log('OpenAI configured:', !!this.config.openai.apiKey);
+    console.log('Google Places configured:', !!this.config.googlePlaces.apiKey);
+    console.log('Vendors configured:', Object.entries(this.config.vendors)
+      .filter(([_, config]) => config.apiKey)
+      .map(([name]) => name));
+    console.log('Warnings:', this.configWarnings);
+    console.log('Errors:', this.configErrors);
+    console.groupEnd();
   }
 
   /**
@@ -295,6 +320,10 @@ class ConfigService {
       sanitized.openai.apiKey = sanitized.openai.apiKey ? '[CONFIGURED]' : '[NOT SET]';
     }
     
+    if (sanitized.googlePlaces) {
+      sanitized.googlePlaces.apiKey = sanitized.googlePlaces.apiKey ? '[CONFIGURED]' : '[NOT SET]';
+    }
+    
     Object.keys(sanitized.vendors || {}).forEach(vendor => {
       if (sanitized.vendors[vendor].apiKey) {
         sanitized.vendors[vendor].apiKey = '[CONFIGURED]';
@@ -303,9 +332,24 @@ class ConfigService {
 
     return sanitized;
   }
+
+  /**
+   * Checks if real AI should be used (has API key and feature enabled)
+   * @returns {boolean} Whether to use real AI
+   */
+  shouldUseRealAI() {
+    return this.config.features.enableRealAI && !!this.config.openai.apiKey;
+  }
+
+  /**
+   * Checks if Google Places API should be used
+   * @returns {boolean} Whether to use Google Places API
+   */
+  shouldUseGooglePlaces() {
+    return !!this.config.googlePlaces.apiKey;
+  }
 }
 
 // Export singleton instance
 export const configService = new ConfigService();
 export default configService;
-
