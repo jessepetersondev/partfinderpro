@@ -53,6 +53,14 @@ jobs:
         VITE_APP_TITLE: "PartFinder Pro"
         VITE_APP_VERSION: ${{ github.sha }}
         VITE_APP_ENV: "production"
+        NODE_ENV: "production"
+
+    - name: List build output for debugging
+      run: |
+        echo "Build output contents:"
+        ls -la dist/
+        echo "Index.html content:"
+        cat dist/index.html
 
     - name: Setup GitHub Pages
       uses: actions/configure-pages@v4
