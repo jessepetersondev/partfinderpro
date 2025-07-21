@@ -2,17 +2,25 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from "path"
 
-// https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
-  // Load env variables based on mode
+  // Load env variables
   const env = loadEnv(mode, process.cwd(), '')
+
+  // Log for debug
   console.log('🔧 Vite Config Debug:')
   console.log('Command:', command)
   console.log('Mode:', mode)
-  console.log('Actual Mode:', env.NODE_ENV)
   console.log('VITE_OPENAI_API_KEY exists:', !!env.VITE_OPENAI_API_KEY)
   console.log('VITE_GOOGLE_PLACES_API_KEY exists:', !!env.VITE_GOOGLE_PLACES_API_KEY)
-  
+
+  // Convert env variables into proper define entries
+  const defineEnv = {}
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('VITE_')) {
+      defineEnv[`import.meta.env.${key}`] = JSON.stringify(env[key])
+    }
+  }
+
   return {
     plugins: [react()],
     resolve: {
@@ -20,17 +28,14 @@ export default defineConfig(({ command, mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
-    // GitHub Pages configuration - use root path for custom domain
     base: '/',
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
       sourcemap: false
     },
-    // Environment directory
     envDir: '.',
-    // Environment file prefix
     envPrefix: ['VITE_', 'NODE_'],
+    define: defineEnv,  // <--- This injects the variables properly!
   }
 })
-
