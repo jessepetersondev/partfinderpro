@@ -6,8 +6,8 @@ class ConfigService {
     this.config = this.loadConfiguration();
     this.validateConfiguration();
     
-    // Debug environment variables in development
-    if (this.isDevelopment() || import.meta.env.VITE_DEBUG_MODE === 'true') {
+    // CRITICAL FIX: Always log configuration in production to verify environment variables
+    if (this.isProduction() || this.isDevelopment() || import.meta.env.VITE_DEBUG_MODE === 'true') {
       this.logConfiguration();
     }
   }
@@ -80,7 +80,7 @@ class ConfigService {
 
       // Cache settings
       cache: {
-        timeout: parseInt(import.meta.env.VITE_CACHE_TIMEOUT ) || 900000, // 15 minutes
+        timeout: parseInt(import.meta.env.VITE_CACHE_TIMEOUT) || 900000, // 15 minutes
         maxSize: 100 // Maximum number of cached items
       },
 
@@ -353,3 +353,4 @@ class ConfigService {
 // Export singleton instance
 export const configService = new ConfigService();
 export default configService;
+
