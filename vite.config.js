@@ -4,17 +4,14 @@ import path from "path"
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
+  // Load env variables based on mode
+  const env = loadEnv(mode, process.cwd(), '')
   console.log('🔧 Vite Config Debug:')
   console.log('Command:', command)
   console.log('Mode:', mode)
-  console.log('Actual Mode:', 'production')
-  console.log('NODE_ENV:', 'production')// Add this debug logging
-  console.log('Environment Variables:', {
-    VITE_OPENAI_API_KEY: !!import.meta.env.VITE_OPENAI_API_KEY,
-    VITE_GOOGLE_PLACES_API_KEY: !!import.meta.env.VITE_GOOGLE_PLACES_API_KEY,
-    NODE_ENV: import.meta.env.NODE_ENV,
-    VITE_APP_MODE: import.meta.env.VITE_APP_MODE
-  });
+  console.log('Actual Mode:', env.NODE_ENV)
+  console.log('VITE_OPENAI_API_KEY exists:', !!env.VITE_OPENAI_API_KEY)
+  console.log('VITE_GOOGLE_PLACES_API_KEY exists:', !!env.VITE_GOOGLE_PLACES_API_KEY)
   
   return {
     plugins: [react()],
