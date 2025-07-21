@@ -33,8 +33,8 @@ class ConfigService {
       // Feature flags - Enable real AI if we have API keys
       features: {
         enableDemoMode: false,
-        enableRealAI: !!(openaiApiKey && openaiApiKey.length > 0),
-        enableVendorAPIs: import.meta.env.VITE_ENABLE_VENDOR_APIS === 'true',
+        enableRealAI: true,
+        enableVendorAPIs: true,
         enableCaching: import.meta.env.VITE_ENABLE_CACHING !== 'false',
         enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
         enableErrorReporting: import.meta.env.VITE_ENABLE_ERROR_REPORTING === 'true'
