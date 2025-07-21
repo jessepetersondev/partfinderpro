@@ -106,15 +106,15 @@ class ConfigService {
     const warnings = [];
     const errors = [];
 
-    // Check OpenAI configuration
-    if (!this.config.openai.apiKey) {
-      warnings.push('OpenAI API key not found. AI features will use demo mode.');
-      // Force demo mode if no API key
-      this.config.features.enableRealAI = false;
-    } else {
-      console.log('✅ OpenAI API key configured - Real AI enabled');
-      this.config.features.enableRealAI = true;
-    }
+    // // Check OpenAI configuration
+    // if (!this.config.openai.apiKey) {
+    //   warnings.push('OpenAI API key not found. AI features will use demo mode.');
+    //   // Force demo mode if no API key
+    //   this.config.features.enableRealAI = false;
+    // } else {
+    //   console.log('✅ OpenAI API key configured - Real AI enabled');
+    //   this.config.features.enableRealAI = true;
+    // }
 
     // Check Google Places API
     if (!this.config.googlePlaces.apiKey) {
@@ -338,7 +338,7 @@ class ConfigService {
    * @returns {boolean} Whether to use real AI
    */
   shouldUseRealAI() {
-    return this.config.features.enableRealAI && !!this.config.openai.apiKey;
+    return true;//this.config.features.enableRealAI && !!this.config.openai.apiKey;
   }
 
   /**
