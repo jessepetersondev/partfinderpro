@@ -8,9 +8,7 @@ export default defineConfig(({ command, mode }) => {
   console.log('Command:', command)
   console.log('Mode:', mode)
   console.log('Actual Mode:', 'production')
-  console.log('NODE_ENV:', env.NODE_ENV)
-  console.log('VITE_OPENAI_API_KEY exists:', !!env.VITE_OPENAI_API_KEY)
-  console.log('VITE_GOOGLE_PLACES_API_KEY exists:', !!env.VITE_GOOGLE_PLACES_API_KEY)
+  console.log('NODE_ENV:', 'production')
   
   return {
     plugins: [react()],
