@@ -1,57 +1,49 @@
 // Analyzes uploaded images to identify appliance parts
 import configService from './config.js';
 
-/**
- * Standalone image validation function - CRITICAL FIX for "validateImage is not a function" error
- * This function is exported separately to ensure it's always available
- */
-export const validateImage = (file) => {
-  const supportedFormats = [
-    'image/jpeg',
-    'image/jpg', 
-    'image/png',
-    'image/webp',
-    'image/gif'
-  ];
-  const maxSizeBytes = 20 * 1024 * 1024; // 20MB
-  const errors = [];
-
-  if (!file) {
-    return { 
-      isValid: false, 
-      errors: ['No file provided'] 
-    };
-  }
-
-  // Validate format
-  if (!supportedFormats.includes(file.type.toLowerCase())) {
-    errors.push(`Unsupported format: ${file.type}. Please use JPEG, PNG, WEBP, or GIF.`);
-  }
-
-  // Validate size
-  if (file.size > maxSizeBytes) {
-    const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-    errors.push(`Image is too large (${sizeMB}MB). Maximum size is 20MB.`);
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors: errors
-  };
-};
-
 class ImageRecognitionService {
   constructor() {
     this.configService = configService;
   }
 
   /**
-   * Validates image file - instance method that calls the standalone function
+   * Validates image file - FIXED to return correct format
    * @param {File} file - Image file to validate
    * @returns {Object} Validation result with isValid and errors
    */
   validateImage(file) {
-    return validateImage(file);
+    const supportedFormats = [
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/webp',
+      'image/gif'
+    ];
+    const maxSizeBytes = 20 * 1024 * 1024; // 20MB
+    const errors = [];
+
+    if (!file) {
+      return { 
+        isValid: false, 
+        errors: ['No file provided'] 
+      };
+    }
+
+    // Validate format
+    if (!supportedFormats.includes(file.type.toLowerCase())) {
+      errors.push(`Unsupported format: ${file.type}. Please use JPEG, PNG, WEBP, or GIF.`);
+    }
+
+    // Validate size
+    if (file.size > maxSizeBytes) {
+      const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+      errors.push(`Image is too large (${sizeMB}MB). Maximum size is 20MB.`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors: errors
+    };
   }
 
   /**
