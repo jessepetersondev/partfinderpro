@@ -45,6 +45,17 @@ jobs:
           VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
           VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
           
+      - name: Fix GitHub Pages MIME types
+        run: |
+          echo "Fixing MIME type issues for GitHub Pages..."
+          # Ensure .nojekyll exists
+          touch dist/.nojekyll
+          # Copy _headers file to dist
+          cp public/_headers dist/_headers
+          # Create index.html fallback for SPA routing
+          cp dist/index.html dist/404.html
+          echo "MIME type fixes applied"
+          
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
