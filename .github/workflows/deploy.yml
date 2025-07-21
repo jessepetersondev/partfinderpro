@@ -34,21 +34,68 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
         
-      - name: Create production environment file
+      - name: Debug GitHub Secrets
         run: |
-          echo "VITE_OPENAI_API_KEY=${{ secrets.VITE_OPENAI_API_KEY }}" > .env.production
-          echo "VITE_GOOGLE_PLACES_API_KEY=${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}" >> .env.production
-          echo "NODE_ENV=production" >> .env.production
-          echo "Created .env.production file:"
-          cat .env.production
+          echo "Debugging GitHub Secrets availability:"
+          echo "VITE_OPENAI_API_KEY is set: ${{ secrets.VITE_OPENAI_API_KEY != '' }}"
+          echo "VITE_GOOGLE_PLACES_API_KEY is set: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY != '' }}"
+          if [ -z "${{ secrets.VITE_OPENAI_API_KEY }}" ]; then
+            echo "❌ VITE_OPENAI_API_KEY secret is NOT set in repository"
+          else
+            echo "✅ VITE_OPENAI_API_KEY secret is set in repository"
+          fi
+          if [ -z "${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}" ]; then
+            echo "❌ VITE_GOOGLE_PLACES_API_KEY secret is NOT set in repository"
+          else
+            echo "✅ VITE_GOOGLE_PLACES_API_KEY secret is set in repository"
+          fi
         
-      - name: Build project
-        run: pnpm run build
-          
-      - name: Fix GitHub Pages MIME types
+      - name: Build project with direct environment injection
         run: |
-          echo "Fixing MIME type issues for GitHub Pages..."
+          echo "Building with direct environment variable injection..."
+          pnpm run build
+        env:
+          NODE_ENV: production
+          VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
+          VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
+          VITE_APP_MODE: production
+          VITE_APP_ENV: production
+          VITE_ENABLE_REAL_AI: true
+          VITE_ENABLE_VENDOR_APIS: true
+          VITE_DEBUG_MODE: true
+          
+      - name: Verify environment variables in build
+        run: |
+          echo "Checking if environment variables were embedded in build..."
+          echo "Searching for environment variable patterns in built files:"
+          
+          # Check for mode
+          if grep -r '"production"' dist/assets/*.js 2>/dev/null | head -5; then
+            echo "✅ Found 'production' mode in build output"
+          else
+            echo "❌ No 'production' mode found in build output"
+          fi
+          
+          # Check for development (should not be there)
+          if grep -r '"development"' dist/assets/*.js 2>/dev/null | head -5; then
+            echo "❌ Found 'development' mode in build output (should be production)"
+          else
+            echo "✅ No 'development' mode found in build output"
+          fi
+          
+          # Check for API key placeholders (not actual keys)
+          if grep -r 'VITE_OPENAI_API_KEY' dist/assets/*.js 2>/dev/null | head -3; then
+            echo "Found VITE_OPENAI_API_KEY references in build"
+          fi
+          
+          echo "Build verification complete"
+          
+      - name: Fix GitHub Pages MIME types and assets
+        run: |
+          echo "Fixing MIME type issues and assets for GitHub Pages..."
+          # Ensure .nojekyll exists
           touch dist/.nojekyll
+          # Create _headers file
           cat > dist/_headers << 'EOF'
           /*
             X-Frame-Options: DENY
@@ -68,8 +115,16 @@ jobs:
           /*.svg
             Content-Type: image/svg+xml
           EOF
+          # Create 404.html fallback
           cp dist/index.html dist/404.html
-          echo "MIME type fixes applied"
+          # Copy vite.svg to dist if it exists in public
+          if [ -f public/vite.svg ]; then
+            cp public/vite.svg dist/vite.svg
+            echo "✅ Copied vite.svg to dist"
+          else
+            echo "⚠️ vite.svg not found in public directory"
+          fi
+          echo "MIME type and asset fixes applied"
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -81,7 +136,7 @@ jobs:
 
   deploy:
     environment:
-      name: Production
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
