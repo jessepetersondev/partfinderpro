@@ -50,8 +50,26 @@ jobs:
           echo "Fixing MIME type issues for GitHub Pages..."
           # Ensure .nojekyll exists
           touch dist/.nojekyll
-          # Copy _headers file to dist
-          cp public/_headers dist/_headers
+          # Create _headers file directly in dist
+          cat > dist/_headers << 'EOF'
+          /*
+            X-Frame-Options: DENY
+            X-XSS-Protection: 1; mode=block
+            X-Content-Type-Options: nosniff
+            Referrer-Policy: strict-origin-when-cross-origin
+
+          /assets/*.js
+            Content-Type: application/javascript; charset=utf-8
+
+          /assets/*.css
+            Content-Type: text/css; charset=utf-8
+
+          /vite.svg
+            Content-Type: image/svg+xml
+
+          /*.svg
+            Content-Type: image/svg+xml
+          EOF
           # Create index.html fallback for SPA routing
           cp dist/index.html dist/404.html
           echo "MIME type fixes applied"
