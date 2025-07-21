@@ -58,7 +58,7 @@ jobs:
           pnpm list vite
         
       - name: Build project
-        run: pnpm run build
+        run: npx vite build
         env:
           VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
           VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
