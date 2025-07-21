@@ -63,11 +63,6 @@ jobs:
           VITE_DEBUG_MODE: true
           VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
           VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
-          VITE_ENABLE_REAL_AI: ${{ secrets.VITE_ENABLE_REAL_AI }}
-          VITE_ENABLE_VENDOR_APIS: ${{ secrets.VITE_ENABLE_VENDOR_APIS }}
-          VITE_DEBUG_MODE: ${{ secrets.VITE_DEBUG_MODE }}
-          VITE_APP_MODE: production
-          VITE_APP_ENV: production
           
       - name: Verify environment variables in build
         run: |
