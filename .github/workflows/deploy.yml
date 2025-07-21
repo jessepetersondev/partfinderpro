@@ -14,11 +14,6 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
-# ONLY CHANGE: Add environment variables at TOP LEVEL
-env:
-  VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
-  VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,18 +34,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
         
+      - name: Create production environment file
+        run: |
+          echo "VITE_OPENAI_API_KEY=${{ secrets.VITE_OPENAI_API_KEY }}" > .env.production
+          echo "VITE_GOOGLE_PLACES_API_KEY=${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}" >> .env.production
+          echo "NODE_ENV=production" >> .env.production
+          echo "Created .env.production file:"
+          cat .env.production
+        
       - name: Build project
         run: pnpm run build
-        env:
-          VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
-          VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
           
       - name: Fix GitHub Pages MIME types
         run: |
           echo "Fixing MIME type issues for GitHub Pages..."
-          # Ensure .nojekyll exists
           touch dist/.nojekyll
-          # Create _headers file directly in dist
           cat > dist/_headers << 'EOF'
           /*
             X-Frame-Options: DENY
@@ -70,7 +68,6 @@ jobs:
           /*.svg
             Content-Type: image/svg+xml
           EOF
-          # Create index.html fallback for SPA routing
           cp dist/index.html dist/404.html
           echo "MIME type fixes applied"
           
