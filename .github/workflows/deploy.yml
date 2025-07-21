@@ -37,35 +37,15 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20' 
+          node-version: '20'
           
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 8
-          run_install: false
           
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-          
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-            
       - name: Install dependencies
-        run: |
-          echo "Installing dependencies with pnpm..."
-          pnpm install --frozen-lockfile
-          echo "Checking installation..."
-          ls -la node_modules/.bin/ | head -10
-          echo "Checking if vite is installed..."
-          pnpm list vite
+        run: pnpm install --no-frozen-lockfile
         
       - name: Debug environment variables
         run: |
@@ -74,6 +54,8 @@ jobs:
           echo "VITE_GOOGLE_PLACES_API_KEY exists: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY != '' }}"
           echo "NODE_ENV: $NODE_ENV"
           echo "VITE_APP_ENV: $VITE_APP_ENV"
+          echo "Checking if vite is installed..."
+          pnpm list vite
         
       - name: Build project
         run: pnpm run build
@@ -88,17 +70,6 @@ jobs:
           VITE_ENABLE_VENDOR_APIS: "true"
           VITE_DEBUG_MODE: "false"
           NODE_ENV: "production"
-          
-      - name: Debug build output
-        run: |
-          echo "Build completed. Checking dist folder:"
-          ls -la dist/
-          echo "Checking if environment variables were injected:"
-          if grep -r "VITE_OPENAI_API_KEY" dist/ 2>/dev/null; then
-            echo "WARNING: API keys found in build output!"
-          else
-            echo "Good: No API keys found in build output"
-          fi
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
