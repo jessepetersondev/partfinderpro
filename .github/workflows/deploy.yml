@@ -14,7 +14,7 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
-# 🔥 CRITICAL FIX: Add environment variables at TOP LEVEL
+# CRITICAL FIX: Add environment variables at TOP LEVEL
 env:
   VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
   VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
@@ -54,6 +54,10 @@ jobs:
           echo "VITE_GOOGLE_PLACES_API_KEY exists: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY != '' }}"
           echo "NODE_ENV: $NODE_ENV"
           echo "VITE_APP_ENV: $VITE_APP_ENV"
+          echo "Checking if vite is available:"
+          pnpm list vite || echo "Vite not found in pnpm list"
+          which vite || echo "Vite not found in PATH"
+          ls -la node_modules/.bin/ | grep vite || echo "Vite not found in node_modules/.bin"
         
       - name: Build project
         run: pnpm run build
