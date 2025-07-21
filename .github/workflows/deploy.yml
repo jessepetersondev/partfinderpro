@@ -2,28 +2,65 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+          
       - name: Install dependencies
-        run: npm ci
-
-      - name: Build project
-        run: npm run build
+        run: pnpm install --no-frozen-lockfile
+        
+      - name: Debug GitHub Secrets
+        run: |
+          echo "Debugging GitHub Secrets availability:"
+          echo "VITE_OPENAI_API_KEY is set: ${{ secrets.VITE_OPENAI_API_KEY != '' }}"
+          echo "VITE_GOOGLE_PLACES_API_KEY is set: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY != '' }}"
+          if [ -z "${{ secrets.VITE_OPENAI_API_KEY }}" ]; then
+            echo "❌ VITE_OPENAI_API_KEY secret is NOT set in repository"
+          else
+            echo "✅ VITE_OPENAI_API_KEY secret is set in repository"
+          fi
+          if [ -z "${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}" ]; then
+            echo "❌ VITE_GOOGLE_PLACES_API_KEY secret is NOT set in repository"
+          else
+            echo "✅ VITE_GOOGLE_PLACES_API_KEY secret is set in repository"
+          fi
+        
+      - name: Build project with direct environment injection
+        run: |
+          echo "Building with direct environment variable injection..."
+          pnpm run build
         env:
+          NODE_ENV: production
+          VITE_APP_MODE: production
+          VITE_APP_ENV: production
+          VITE_ENABLE_REAL_AI: true
+          VITE_ENABLE_VENDOR_APIS: true
+          VITE_DEBUG_MODE: true
           VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
           VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
           VITE_ENABLE_REAL_AI: ${{ secrets.VITE_ENABLE_REAL_AI }}
@@ -31,9 +68,85 @@ jobs:
           VITE_DEBUG_MODE: ${{ secrets.VITE_DEBUG_MODE }}
           VITE_APP_MODE: production
           VITE_APP_ENV: production
+          
+      - name: Verify environment variables in build
+        run: |
+          echo "Checking if environment variables were embedded in build..."
+          echo "Searching for environment variable patterns in built files:"
+          
+          # Check for mode
+          if grep -r '"production"' dist/assets/*.js 2>/dev/null | head -5; then
+            echo "✅ Found 'production' mode in build output"
+          else
+            echo "❌ No 'production' mode found in build output"
+          fi
+          
+          # Check for development (should not be there)
+          if grep -r '"development"' dist/assets/*.js 2>/dev/null | head -5; then
+            echo "❌ Found 'development' mode in build output (should be production)"
+          else
+            echo "✅ No 'development' mode found in build output"
+          fi
+          
+          # Check for API key placeholders (not actual keys)
+          if grep -r 'VITE_OPENAI_API_KEY' dist/assets/*.js 2>/dev/null | head -3; then
+            echo "Found VITE_OPENAI_API_KEY references in build"
+          fi
+          
+          echo "Build verification complete"
+          
+      - name: Fix GitHub Pages MIME types and assets
+        run: |
+          echo "Fixing MIME type issues and assets for GitHub Pages..."
+          # Ensure .nojekyll exists
+          touch dist/.nojekyll
+          # Create _headers file
+          cat > dist/_headers << 'EOF'
+          /*
+            X-Frame-Options: DENY
+            X-XSS-Protection: 1; mode=block
+            X-Content-Type-Options: nosniff
+            Referrer-Policy: strict-origin-when-cross-origin
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+          /assets/*.js
+            Content-Type: application/javascript; charset=utf-8
+
+          /assets/*.css
+            Content-Type: text/css; charset=utf-8
+
+          /vite.svg
+            Content-Type: image/svg+xml
+
+          /*.svg
+            Content-Type: image/svg+xml
+          EOF
+          # Create 404.html fallback
+          cp dist/index.html dist/404.html
+          # Copy vite.svg to dist if it exists in public
+          if [ -f public/vite.svg ]; then
+            cp public/vite.svg dist/vite.svg
+            echo "✅ Copied vite.svg to dist"
+          else
+            echo "⚠️ vite.svg not found in public directory"
+          fi
+          echo "MIME type and asset fixes applied"
+          
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: './dist'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
