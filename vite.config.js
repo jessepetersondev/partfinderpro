@@ -10,8 +10,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // GitHub Pages configuration - use root path for custom domain
-  base: '/',
+  // GitHub Pages configuration - use repository name as base path
+  base: '/partfinder-pro/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -22,11 +22,6 @@ export default defineConfig({
       },
     },
   },
-  // Properly define only necessary environment variables
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-    'import.meta.env.VITE_OPENAI_API_KEY': JSON.stringify(process.env.VITE_OPENAI_API_KEY || ''),
-    'import.meta.env.VITE_GOOGLE_PLACES_API_KEY': JSON.stringify(process.env.VITE_GOOGLE_PLACES_API_KEY || ''),
-  }
+  // Environment variables are injected by GitHub Actions during build
+  // No need to define them here - they come from GitHub Secrets
 })
-

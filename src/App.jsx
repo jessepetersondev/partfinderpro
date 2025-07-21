@@ -69,7 +69,9 @@ const loadAPIServices = async () => {
       imageRecognition: imageModule?.imageRecognitionService || null,
       partsDatabase: partsModule?.partsDatabase || null,
       geolocation: geolocationModule?.geolocationService || null,
-      storeFinder: storeFinderModule?.storeFinderService || null
+      storeFinder: storeFinderModule?.storeFinderService || null,
+      // CRITICAL FIX: Import the standalone validateImage function
+      validateImage: imageModule?.validateImage || null
     };
 
     // Initialize configuration if available
@@ -144,10 +146,18 @@ function App() {
             let identifiedPart;
 
             if (services && services.imageRecognition) {
-              // Validate image
-              const validation = services.imageRecognition.validateImage(file);
-              if (!validation.valid) {
-                setError(validation.error);
+              // CRITICAL FIX: Use the standalone validateImage function
+              let validation;
+              if (services.validateImage) {
+                // Use the standalone function if available
+                validation = services.validateImage(file);
+              } else {
+                // Fallback to service method
+                validation = services.imageRecognition.validateImage(file);
+              }
+              
+              if (!validation.isValid) {
+                setError(validation.errors.join(', '));
                 setIsProcessing(false);
                 return;
               }
