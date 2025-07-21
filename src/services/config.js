@@ -20,7 +20,7 @@ class ConfigService {
     // Get environment variables with proper fallbacks
     const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
     const googlePlacesApiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-    const appMode = import.meta.env.VITE_APP_MODE || import.meta.env.VITE_APP_ENV || 'development';
+    const appMode = import.meta.env.VITE_APP_MODE || 'development';
     
     return {
       // Application settings
