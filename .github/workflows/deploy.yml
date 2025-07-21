@@ -60,7 +60,7 @@ jobs:
           VITE_APP_ENV: production
           VITE_ENABLE_REAL_AI: true
           VITE_ENABLE_VENDOR_APIS: true
-          VITE_DEBUG_MODE: true
+          VITE_DEBUG_MODE: false
           VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
           VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
           
