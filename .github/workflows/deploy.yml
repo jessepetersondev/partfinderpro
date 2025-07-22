@@ -55,12 +55,12 @@ jobs:
           echo "Building with direct environment variable injection..."
           pnpm run build
         env:
-          NODE_ENV: ${{ env.NODE_ENV }}
-          VITE_APP_MODE: ${{ env.VITE_ENABLE_REAL_AI }}
-          VITE_APP_ENV: ${{ env.VITE_ENABLE_REAL_AI }}
-          VITE_ENABLE_REAL_AI: ${{ env.VITE_ENABLE_REAL_AI }}
-          VITE_ENABLE_VENDOR_APIS: ${{ env.VITE_ENABLE_VENDOR_APIS }}
-          VITE_DEBUG_MODE: ${{ env.VITE_DEBUG_MODE }}
+          NODE_ENV: production
+          VITE_APP_MODE: production
+          VITE_APP_ENV: production
+          VITE_ENABLE_REAL_AI: true
+          VITE_ENABLE_VENDOR_APIS: true
+          VITE_DEBUG_MODE: false
           VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
           VITE_GOOGLE_PLACES_API_KEY: ${{ secrets.VITE_GOOGLE_PLACES_API_KEY }}
           
