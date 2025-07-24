@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import { Camera, Search, MapPin, Star, Navigation, CheckCircle, Upload, Zap, Target, DollarSign, Play, AlertCircle, Clock, Phone, ExternalLink } from 'lucide-react'
 import sampleSeal from './assets/sample-dishwasher-seal.jpg'
 import sampleFilter from './assets/sample-water-filter.jpg'
+import { useCapacitor } from './hooks/useCapacitor';
 import './App.css'
 
 // Mock data for demonstration (preserved for fallback)
@@ -97,29 +98,21 @@ function App() {
   const [locationError, setLocationError] = useState(null)
   const [apiStatus, setApiStatus] = useState({ ai: 'demo', location: 'demo', loaded: false })
   const [error, setError] = useState(null)
-  const [zipCodeInput, setZipCodeInput] = useState('')
+  const [zipCode, setZipCode] = useState('') // FIXED - Added ZIP code state
   const fileInputRef = useRef(null)
+  const { takePicture, isCapacitorAvailable } = useCapacitor();
 
-  // Initialize API services
+  // Load API services on component mount
   useEffect(() => {
     const initializeServices = async () => {
-      try {
-        const services = await loadAPIServices();
-        
-        if (services && services.config) {
-          // Check API status
-          const aiConfigured = services.config.get('openai.apiKey') ? 'configured' : 'demo';
-          
-          setApiStatus({
-            ai: aiConfigured,
-            location: services.geolocation ? 'available' : 'demo',
-            loaded: true
-          });
-        } else {
-          setApiStatus({ ai: 'demo', location: 'demo', loaded: true });
-        }
-      } catch (error) {
-        console.error('Error initializing services:', error);
+      const services = await loadAPIServices();
+      if (services) {
+        setApiStatus({
+          ai: services.imageRecognition ? 'ready' : 'demo',
+          location: services.geolocation ? 'ready' : 'demo',
+          loaded: true
+        });
+      } else {
         setApiStatus({ ai: 'demo', location: 'demo', loaded: true });
       }
     };
@@ -128,76 +121,128 @@ function App() {
   }, []);
 
   /**
-   * Enhanced image capture handler with API integration
+   * Handle camera capture
    */
-  const handleImageCapture = async (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      try {
-        setError(null);
-        
-        const reader = new FileReader()
-        reader.onload = async (e) => {
-          setCapturedImage(e.target.result)
-          setIsProcessing(true)
-          
-          try {
-            const services = await loadAPIServices();
-            let identifiedPart;
-
-            if (services && services.imageRecognition) {
-              // CRITICAL FIX: Use the standalone validateImage function
-              let validation;
-              if (services.validateImage) {
-                // Use the standalone function if available
-                validation = services.validateImage(file);
-              } else {
-                // Fallback to service method
-                validation = services.imageRecognition.validateImage(file);
-              }
-              
-              if (!validation.isValid) {
-                setError(validation.errors.join(', '));
-                setIsProcessing(false);
-                return;
-              }
-
-              // Use AI service for identification
-              identifiedPart = await services.imageRecognition.identifyPart(e.target.result);
-              
-              // Enhance with parts database
-              if (services.partsDatabase && identifiedPart) {
-                identifiedPart = await services.partsDatabase.enhancePartData(identifiedPart);
-              }
-            } else {
-              // Fallback to demo mode
-              console.log('Using demo mode for part identification');
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing
-              identifiedPart = mockParts[0]; // Use first mock part
-              identifiedPart.source = 'demo';
-            }
-
-            if (identifiedPart) {
-              setSelectedPart(identifiedPart);
-              setCurrentScreen('results');
-            } else {
-              setError('Could not identify the part. Please try a clearer image.');
-            }
-          } catch (error) {
-            console.error('Error processing image:', error);
-            setError('Error processing image. Please try again.');
-          } finally {
-            setIsProcessing(false);
-          }
+  const handleCameraCapture = async () => {
+    setError(null);
+    
+    try {
+      if (isCapacitorAvailable) {
+        // Use Capacitor camera for mobile
+        const imageData = await takePicture();
+        if (imageData) {
+          setCapturedImage(imageData);
+          await processImage(imageData);
         }
-        reader.readAsDataURL(file)
-      } catch (error) {
-        console.error('Error reading file:', error);
-        setError('Error reading image file. Please try again.');
-        setIsProcessing(false);
+      } else {
+        // Use file input for web
+        fileInputRef.current?.click();
       }
+    } catch (error) {
+      console.error('Camera capture error:', error);
+      setError('Camera not available. Please use file upload instead.');
     }
-  }
+  };
+
+  /**
+   * Handle file upload
+   */
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file.');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image file is too large. Please select an image under 10MB.');
+      return;
+    }
+
+    try {
+      const services = await loadAPIServices();
+      
+      // Use the standalone validateImage function if available
+      if (services && services.validateImage) {
+        const validation = services.validateImage(file);
+        if (!validation.isValid) {
+          setError(validation.errors.join(' '));
+          return;
+        }
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageData = e.target?.result;
+        if (imageData) {
+          setCapturedImage(imageData);
+          await processImage(imageData);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('File upload error:', error);
+      setError('Error processing image file. Please try again.');
+    }
+  };
+
+  /**
+   * Process captured/uploaded image
+   */
+  const processImage = async (imageData) => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const services = await loadAPIServices();
+      let identifiedPart = null;
+
+      if (services && services.imageRecognition) {
+        try {
+          console.log('Using AI for part identification');
+          identifiedPart = await services.imageRecognition.identifyPart(imageData);
+          
+          if (identifiedPart && services.partsDatabase) {
+            // Enhance with additional part data
+            identifiedPart = await services.partsDatabase.enhancePartData(identifiedPart);
+          }
+          
+          if (identifiedPart) {
+            identifiedPart.source = 'ai';
+          }
+        } catch (aiError) {
+          console.warn('AI identification failed, falling back to demo mode:', aiError);
+          identifiedPart = null;
+        }
+      }
+
+      if (!identifiedPart) {
+        // Fallback to demo mode
+        console.log('Using demo mode for part identification');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing
+        identifiedPart = mockParts[0]; // Use first mock part
+        identifiedPart.source = 'demo';
+      }
+
+      if (identifiedPart) {
+        setSelectedPart(identifiedPart);
+        setCurrentScreen('results');
+      } else {
+        setError('Could not identify the part. Please try a clearer image.');
+      }
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setError('Error processing image. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   /**
    * Handle demo mode
@@ -233,7 +278,7 @@ function App() {
   };
 
   /**
-   * Handle finding local stores
+   * FIXED - Handle finding local stores with proper distance filtering
    */
   const handleFindStores = async () => {
     if (!selectedPart) return;
@@ -245,9 +290,12 @@ function App() {
     try {
       const services = await loadAPIServices();
       
+      // FIXED - Use stricter distance limit (3-5 miles instead of 25)
+      const maxDistance = 5; // Maximum 5 miles
+      
       // Always try to use the AI store locator first
       if (services && services.storeFinder) {
-        console.log('Using AI Store Locator for store finding');
+        console.log(`Using AI Store Locator for store finding within ${maxDistance} miles`);
         
         // Get user location first
         let location;
@@ -257,29 +305,35 @@ function App() {
             setUserLocation(location);
             console.log('Got user location:', location);
           } catch (locationError) {
-            console.warn('Could not get user location, using central US default:', locationError);
-            // Use central US location as default instead of CA
-            location = { latitude: 39.8283, longitude: -98.5795 }; // Geographic center of US
-            setUserLocation(location);
+            console.warn('Could not get user location:', locationError);
+            setLocationError('Location access denied. Please enable location services or enter your ZIP code below.');
+            
+            // Don't use fallback location - require user input
+            setIsLoadingStores(false);
+            return;
           }
         } else {
-          // Use central US location as default if geolocation service not available
-          console.log('Geolocation service not available, using central US default');
-          location = { latitude: 39.8283, longitude: -98.5795 }; // Geographic center of US
-          setUserLocation(location);
+          console.log('Geolocation service not available');
+          setLocationError('Location services not available. Please enter your ZIP code below.');
+          setIsLoadingStores(false);
+          return;
         }
 
-        // Use AI store locator to find nearby stores
-        const stores = await services.storeFinder.findNearbyStores(selectedPart, location);
+        // FIXED - Use AI store locator with strict distance limit
+        const stores = await services.storeFinder.findNearbyStores(selectedPart, location, maxDistance);
         setNearbyStores(stores);
         
-        console.log(`AI Store Locator found ${stores.length} stores near user location`);
+        console.log(`AI Store Locator found ${stores.length} stores within ${maxDistance} miles`);
+        
+        if (stores.length === 0) {
+          setError(`No stores found within ${maxDistance} miles. Try entering a ZIP code to search a different area.`);
+        }
       } else {
         // Only fallback to demo if services completely failed to load
         console.log('Services failed to load, using demo mode for store finding');
         await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing
         
-        // Create demo stores with realistic data
+        // FIXED - Create demo stores with realistic close distances
         const demoStores = [
           {
             id: 'demo_1',
@@ -290,14 +344,16 @@ function App() {
             state: 'CA',
             zipCode: '90210',
             phone: '(555) 123-4567',
-            distance: 2.3,
-            distanceFormatted: '2.3 mi',
+            distance: 1.8, // FIXED - Closer distance
+            distanceFormatted: '1.8 mi',
             rating: 4.2,
-            availability: { status: 'in-stock', label: 'In Stock' },
-            estimatedPrice: { price: 24.99, currency: 'USD' },
+            availability: { status: 'in-stock', label: 'Likely In Stock', color: 'green' },
+            estimatedPrice: { price: 24.99, currency: 'USD', formatted: '$24.99', range: '$20-$30' },
             hours: { monday: '6:00 AM - 10:00 PM' },
             services: ['Parts Lookup', 'Installation', 'Repair Service'],
-            website: 'https://homedepot.com'
+            website: 'https://homedepot.com',
+            likelihood: 85,
+            coordinates: { lat: 34.0522, lng: -118.2437 }
           },
           {
             id: 'demo_2',
@@ -308,14 +364,16 @@ function App() {
             state: 'CA',
             zipCode: '90210',
             phone: '(555) 234-5678',
-            distance: 3.7,
-            distanceFormatted: '3.7 mi',
+            distance: 2.4, // FIXED - Closer distance
+            distanceFormatted: '2.4 mi',
             rating: 4.3,
-            availability: { status: 'limited', label: 'Limited Stock' },
-            estimatedPrice: { price: 26.95, currency: 'USD' },
+            availability: { status: 'possible', label: 'May Have In Stock', color: 'orange' },
+            estimatedPrice: { price: 26.95, currency: 'USD', formatted: '$26.95', range: '$22-$32' },
             hours: { monday: '6:00 AM - 10:00 PM' },
             services: ['Parts Lookup', 'Installation', 'Appliance Repair'],
-            website: 'https://lowes.com'
+            website: 'https://lowes.com',
+            likelihood: 80,
+            coordinates: { lat: 34.0522, lng: -118.2437 }
           },
           {
             id: 'demo_3',
@@ -326,14 +384,16 @@ function App() {
             state: 'CA',
             zipCode: '90210',
             phone: '(555) 345-6789',
-            distance: 5.1,
-            distanceFormatted: '5.1 mi',
+            distance: 3.2, // FIXED - Closer distance
+            distanceFormatted: '3.2 mi',
             rating: 4.7,
-            availability: { status: 'in-stock', label: 'In Stock' },
-            estimatedPrice: { price: 23.50, currency: 'USD' },
+            availability: { status: 'in-stock', label: 'Likely In Stock', color: 'green' },
+            estimatedPrice: { price: 23.50, currency: 'USD', formatted: '$23.50', range: '$19-$28' },
             hours: { monday: '9:00 AM - 6:00 PM' },
             services: ['Parts Lookup', 'Expert Advice', 'Special Orders'],
-            website: 'https://abcapplianceparts.com'
+            website: 'https://abcapplianceparts.com',
+            likelihood: 92,
+            coordinates: { lat: 34.0522, lng: -118.2437 }
           }
         ];
         
@@ -355,6 +415,59 @@ function App() {
   };
 
   /**
+   * FIXED - Handle ZIP code search with proper distance filtering
+   */
+  const handleZipCodeSearch = async () => {
+    if (!selectedPart || !zipCode.trim()) {
+      setError('Please enter a valid ZIP code.');
+      return;
+    }
+
+    // Validate ZIP code format
+    const zipRegex = /^\d{5}$/;
+    if (!zipRegex.test(zipCode.trim())) {
+      setError('Please enter a valid 5-digit ZIP code.');
+      return;
+    }
+
+    setIsLoadingStores(true);
+    setLocationError(null);
+    setError(null);
+
+    try {
+      const services = await loadAPIServices();
+      const maxDistance = 5; // FIXED - Use same strict distance limit
+      
+      if (services && services.storeFinder && services.storeFinder.findStoresByZipCode) {
+        console.log(`Searching for stores near ZIP code ${zipCode} within ${maxDistance} miles`);
+        
+        const stores = await services.storeFinder.findStoresByZipCode(selectedPart, zipCode.trim(), maxDistance);
+        setNearbyStores(stores);
+        
+        // Set user location based on ZIP code
+        if (stores.length > 0 && stores[0].userLocation) {
+          setUserLocation(stores[0].userLocation);
+        }
+        
+        console.log(`Found ${stores.length} stores near ZIP code ${zipCode}`);
+        
+        if (stores.length === 0) {
+          setError(`No stores found within ${maxDistance} miles of ZIP code ${zipCode}. Try a different ZIP code.`);
+        } else {
+          setCurrentScreen('stores');
+        }
+      } else {
+        setError('ZIP code search not available. Please enable location services instead.');
+      }
+    } catch (error) {
+      console.error('Error searching by ZIP code:', error);
+      setError('Error searching by ZIP code. Please try again or enable location services.');
+    } finally {
+      setIsLoadingStores(false);
+    }
+  };
+
+  /**
    * Get directions to store
    */
   const getDirections = (store) => {
@@ -370,534 +483,550 @@ function App() {
     } else {
       // Fallback to store address search if no user location
       const address = store.address || `${store.name}`;
-      const query = encodeURIComponent(address);
-      const url = `https://www.google.com/maps/search/${query}`;
-      console.log(`Directions fallback: Searching for ${query}`);
+      const url = `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
       window.open(url, '_blank');
     }
   };
 
   /**
-   * Handle zip code search
+   * Call store
    */
-  const handleZipCodeSearch = async () => {
-    if (!zipCodeInput.match(/^\d{5}$/)) {
-      setError('Please enter a valid 5-digit ZIP code');
-      return;
-    }
-
-    setIsLoadingStores(true);
-    setError(null);
-
-    try {
-      // Convert ZIP code to coordinates using a geocoding service
-      const coordinates = await zipCodeToCoordinates(zipCodeInput);
-      
-      if (coordinates) {
-        // Update user location with new coordinates and ZIP code
-        const newLocation = {
-          latitude: coordinates.lat,
-          longitude: coordinates.lng,
-          zipCode: zipCodeInput
-        };
-        setUserLocation(newLocation);
-        
-        // Re-run store search with new location
-        const services = await loadAPIServices();
-        if (services && services.storeFinder && selectedPart) {
-          const stores = await services.storeFinder.findNearbyStores(selectedPart, newLocation);
-          setNearbyStores(stores);
-          console.log(`Found ${stores.length} stores near ZIP code ${zipCodeInput}`);
-        }
-      } else {
-        setError('Could not find location for ZIP code. Please try a different ZIP code.');
-      }
-    } catch (error) {
-      console.error('Error searching by ZIP code:', error);
-      setError('Error searching by ZIP code. Please try again.');
-    } finally {
-      setIsLoadingStores(false);
+  const callStore = (store) => {
+    if (store.phone) {
+      window.location.href = `tel:${store.phone}`;
     }
   };
 
   /**
-   * Convert ZIP code to coordinates
+   * Visit store website
    */
-  const zipCodeToCoordinates = async (zipCode) => {
-    try {
-      // Use a free geocoding service to convert ZIP code to coordinates
-      const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          lat: parseFloat(data.places[0].latitude),
-          lng: parseFloat(data.places[0].longitude)
-        };
-      }
-      
-      // Fallback: Use approximate coordinates for common ZIP codes
-      const zipCodeMap = {
-        '10001': { lat: 40.7505, lng: -73.9934 }, // NYC
-        '90210': { lat: 34.0901, lng: -118.4065 }, // Beverly Hills
-        '60601': { lat: 41.8781, lng: -87.6298 }, // Chicago
-        '77001': { lat: 29.7604, lng: -95.3698 }, // Houston
-        '33101': { lat: 25.7617, lng: -80.1918 }, // Miami
-        '55101': { lat: 44.9537, lng: -93.0900 }, // St. Paul, MN
-      };
-      
-      return zipCodeMap[zipCode] || null;
-    } catch (error) {
-      console.error('Error converting ZIP code to coordinates:', error);
-      return null;
+  const visitWebsite = (store) => {
+    if (store.website) {
+      window.open(store.website, '_blank');
+    } else if (store.googleMapsUri) {
+      window.open(store.googleMapsUri, '_blank');
     }
   };
 
-  const renderProcessingScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 flex items-center justify-center">
-      <div className="max-w-md mx-auto text-center">
-        <div className="bg-white rounded-lg p-8 shadow-lg">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h3 className="text-xl font-semibold mb-2">Analyzing Your Part</h3>
-          <p className="text-gray-600">AI is identifying your appliance part...</p>
-        </div>
-      </div>
-    </div>
-  )
+  /**
+   * Reset to home screen
+   */
+  const resetToHome = () => {
+    setCurrentScreen('home');
+    setSelectedPart(null);
+    setCapturedImage(null);
+    setNearbyStores([]);
+    setUserLocation(null);
+    setLocationError(null);
+    setError(null);
+    setZipCode(''); // FIXED - Reset ZIP code
+  };
+
+  // Render different screens
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'home':
+        return renderHomeScreen();
+      case 'results':
+        return renderResultsScreen();
+      case 'stores':
+        return renderStoresScreen();
+      default:
+        return renderHomeScreen();
+    }
+  };
 
   const renderHomeScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8 pt-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <Search className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">PartFinder Pro</h1>
-          <p className="text-gray-600">Identify appliance parts and find local stores</p>
-          
-          {/* API Status Indicators */}
-          {apiStatus.loaded && (
-            <div className="flex justify-center gap-2 mt-4">
-              <Badge variant={apiStatus.ai === 'configured' ? 'default' : 'secondary'} className="text-xs">
-                AI: {apiStatus.ai === 'configured' ? 'Live' : 'Demo'}
-              </Badge>
-              <Badge variant={apiStatus.location === 'available' ? 'default' : 'secondary'} className="text-xs">
-                Location: {apiStatus.location === 'available' ? 'Available' : 'Demo'}
-              </Badge>
-            </div>
-          )}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">PartFinder Pro</h1>
+          <p className="text-xl text-gray-600">AI-Powered Appliance Part Identification</p>
         </div>
 
         {/* Error Display */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">
             <CardContent className="p-4">
-              <div className="flex items-center space-x-2 text-red-700">
-                <AlertCircle className="h-4 w-4" />
-                <span className="text-sm">{error}</span>
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                <span>{error}</span>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Features */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="text-center">
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-2">
-              <Camera className="h-6 w-6 text-blue-600 mx-auto" />
-            </div>
-            <p className="text-sm text-gray-600">Snap Photo</p>
-          </div>
-          <div className="text-center">
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-2">
-              <Target className="h-6 w-6 text-green-600 mx-auto" />
-            </div>
-            <p className="text-sm text-gray-600">AI Identify</p>
-          </div>
-          <div className="text-center">
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-2">
-              <MapPin className="h-6 w-6 text-purple-600 mx-auto" />
-            </div>
-            <p className="text-sm text-gray-600">Find Stores</p>
-          </div>
-        </div>
-
-        {/* Main Action Card */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="text-center mb-6">
-              <div className="bg-blue-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <Camera className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Identify Your Part</h3>
-              <p className="text-gray-600">Take a photo of your appliance part and let AI identify it for you</p>
-            </div>
-
-            <div className="space-y-3">
-              <Button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                size="lg"
-              >
-                <Camera className="mr-2 h-5 w-5" />
+        {/* Main Action Cards */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Camera Capture */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-6 w-6 text-blue-600" />
                 Take Photo
-              </Button>
+              </CardTitle>
+              <CardDescription>
+                Capture an image of your appliance part for instant identification
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <Button 
-                variant="outline" 
-                onClick={handleDemo}
+                onClick={handleCameraCapture}
                 className="w-full"
                 size="lg"
+                disabled={isProcessing}
               >
-                <Play className="mr-2 h-5 w-5" />
-                Try Demo
+                {isProcessing ? 'Processing...' : 'Open Camera'}
               </Button>
-            </div>
+            </CardContent>
+          </Card>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleImageCapture}
-              className="hidden"
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-
-  const renderResultsScreen = () => (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 pt-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => setCurrentScreen('home')}
-            className="p-2"
-          >
-            ← Back
-          </Button>
-          <h2 className="text-lg font-semibold">Part Identified</h2>
-          <div></div>
+          {/* File Upload */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-6 w-6 text-green-600" />
+                Upload Image
+              </CardTitle>
+              <CardDescription>
+                Select an existing photo from your device
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button 
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                className="w-full"
+                size="lg"
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Choose File'}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Part Image and Confidence */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="relative">
-              <img 
-                src={capturedImage || selectedPart?.imageUrl} 
-                alt="Captured part"
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              <div className="absolute top-2 right-2 flex gap-2">
-                <Badge className="bg-green-100 text-green-800">
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  {selectedPart?.confidence || 92}% Match
-                </Badge>
-                <Badge variant="outline" className="bg-white">
-                  {selectedPart?.category}
-                </Badge>
-              </div>
-              {selectedPart?.source && (
-                <div className="absolute bottom-2 left-2">
-                  <Badge variant="outline" className="text-xs bg-white">
-                    Source: {selectedPart.source}
-                  </Badge>
-                </div>
-              )}
-            </div>
+        {/* Demo Section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="h-6 w-6 text-purple-600" />
+              Try Demo
+            </CardTitle>
+            <CardDescription>
+              See how PartFinder Pro works with a sample dishwasher door seal
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={handleDemo}
+              variant="outline"
+              className="w-full"
+              size="lg"
+              disabled={isProcessing}
+            >
+              {isProcessing ? 'Loading Demo...' : 'Start Demo'}
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Part Details */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <h3 className="text-xl font-semibold mb-2">{selectedPart?.name}</h3>
-            <p className="text-gray-600 mb-4">Part #{selectedPart?.partNumber} • {selectedPart?.brand}</p>
-            <p className="text-sm text-gray-700 mb-4">{selectedPart?.description}</p>
+        {/* Features */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card>
+            <CardContent className="p-6 text-center">
+              <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">AI-Powered</h3>
+              <p className="text-sm text-gray-600">Advanced computer vision identifies parts instantly</p>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="p-6 text-center">
+              <Target className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Accurate Results</h3>
+              <p className="text-sm text-gray-600">Get precise part numbers and compatibility info</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6 text-center">
+              <MapPin className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Find Local Stores</h3>
+              <p className="text-sm text-gray-600">Locate nearby stores that carry your part</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Status Indicator */}
+        {apiStatus.loaded && (
+          <div className="mt-8 text-center">
+            <div className="inline-flex items-center gap-4 px-4 py-2 bg-white rounded-lg shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${apiStatus.ai === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-sm">AI: {apiStatus.ai === 'ready' ? 'Ready' : 'Demo Mode'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${apiStatus.location === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-sm">Location: {apiStatus.location === 'ready' ? 'Ready' : 'Demo Mode'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderResultsScreen = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Part Identified</h1>
+          <Button onClick={resetToHome} variant="outline">
+            New Search
+          </Button>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                <span>{error}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Image */}
+          <Card>
+            <CardContent className="p-6">
+              <img 
+                src={capturedImage || selectedPart?.imageUrl} 
+                alt="Captured part" 
+                className="w-full h-64 object-cover rounded-lg mb-4"
+              />
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  {selectedPart?.confidence}% Match
+                </Badge>
+                <Badge variant={selectedPart?.source === 'ai' ? 'default' : 'secondary'}>
+                  {selectedPart?.source === 'ai' ? 'AI Identified' : 'Demo Mode'}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Part Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{selectedPart?.name}</CardTitle>
+              <CardDescription>
+                Part #{selectedPart?.partNumber} • {selectedPart?.brand}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">{selectedPart?.description}</p>
+              
+              <div className="space-y-2 mb-6">
+                <div className="flex justify-between">
+                  <span className="font-medium">Category:</span>
+                  <span>{selectedPart?.category}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Brand:</span>
+                  <span>{selectedPart?.brand}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Part Number:</span>
+                  <span className="font-mono">{selectedPart?.partNumber}</span>
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleFindStores}
+                className="w-full"
+                size="lg"
+                disabled={isLoadingStores}
+              >
+                {isLoadingStores ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Finding Stores...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Find Local Stores
+                  </div>
+                )}
+              </Button>
+
+              {/* FIXED - Add ZIP code search option */}
+              {locationError && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800 text-sm mb-3">{locationError}</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Enter ZIP code (e.g., 90210)"
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      maxLength={5}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleZipCodeSearch}
+                      disabled={isLoadingStores || !zipCode.trim()}
+                      size="sm"
+                    >
+                      Search
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Specifications and Compatibility */}
+        <Card className="mt-6">
+          <CardContent className="p-6">
             <Tabs defaultValue="specs" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="specs">Specifications</TabsTrigger>
                 <TabsTrigger value="compatibility">Compatibility</TabsTrigger>
               </TabsList>
-              <TabsContent value="specs" className="space-y-2">
-                {selectedPart?.specifications && Object.entries(selectedPart.specifications).map(([key, value]) => (
-                  <div key={key} className="flex justify-between">
-                    <span className="text-gray-600">{key}:</span>
-                    <span className="font-medium">{value}</span>
-                  </div>
-                ))}
-              </TabsContent>
-              <TabsContent value="compatibility" className="space-y-2">
-                <p className="text-sm text-gray-600 mb-2">Compatible Models:</p>
-                <div className="space-y-1">
-                  {selectedPart?.compatibleModels?.map((model, index) => (
-                    <Badge key={index} variant="outline" className="mr-2 mb-1">
-                      {model}
-                    </Badge>
+              
+              <TabsContent value="specs" className="mt-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {selectedPart?.specifications && Object.entries(selectedPart.specifications).map(([key, value]) => (
+                    <div key={key} className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="font-medium">{key}:</span>
+                      <span>{value}</span>
+                    </div>
                   ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="compatibility" className="mt-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium mb-3">Compatible Models:</h4>
+                  <div className="grid md:grid-cols-2 gap-2">
+                    {selectedPart?.compatibleModels?.map((model, index) => (
+                      <div key={index} className="px-3 py-2 bg-gray-50 rounded font-mono text-sm">
+                        {model}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
-
-        {/* Location Error Display */}
-        {locationError && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2 text-yellow-700">
-                <AlertCircle className="h-4 w-4" />
-                <div>
-                  <p className="text-sm font-medium">Location Access Needed</p>
-                  <p className="text-xs">{locationError}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Action Buttons */}
-        <div className="space-y-3">
-          <Button 
-            onClick={handleFindStores}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-            size="lg"
-            disabled={isLoadingStores}
-          >
-            <MapPin className="mr-2 h-5 w-5" />
-            {isLoadingStores ? 'Finding Stores...' : 'Find Local Stores'}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setCurrentScreen('home')}
-            className="w-full"
-            size="lg"
-          >
-            <Camera className="mr-2 h-5 w-5" />
-            Identify Another Part
-          </Button>
-        </div>
       </div>
     </div>
-  )
+  );
 
   const renderStoresScreen = () => (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-md mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 pt-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => setCurrentScreen('results')}
-            className="p-2"
-          >
-            ← Back
-          </Button>
-          <h2 className="text-lg font-semibold">Local Stores</h2>
-          <div></div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Local Stores</h1>
+            <p className="text-gray-600">
+              {/* FIXED - Show actual distance limit */}
+              Stores within 5 miles carrying: {selectedPart?.name}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => setCurrentScreen('results')} variant="outline">
+              Back to Results
+            </Button>
+            <Button onClick={resetToHome} variant="outline">
+              New Search
+            </Button>
+          </div>
         </div>
 
-        {/* Part Summary */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <img 
-                src={selectedPart?.imageUrl} 
-                alt={selectedPart?.name}
-                className="w-16 h-16 object-cover rounded-lg"
-              />
-              <div>
-                <h3 className="font-semibold">{selectedPart?.name}</h3>
-                <p className="text-sm text-gray-600">Part #{selectedPart?.partNumber}</p>
-                <Badge variant="outline" className="text-xs mt-1">
-                  {nearbyStores.length} stores found
-                </Badge>
+        {/* Error Display */}
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                <span>{error}</span>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Location Control */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium text-sm">Search Location</h4>
-                {userLocation && (
-                  <Badge variant="secondary" className="text-xs">
-                    {userLocation.zipCode || 'Current Location'}
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  placeholder="Enter ZIP code (e.g., 55101)"
-                  value={zipCodeInput}
-                  onChange={(e) => setZipCodeInput(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  maxLength="5"
-                />
-                <Button 
-                  onClick={handleZipCodeSearch}
-                  disabled={isLoadingStores || !zipCodeInput.match(/^\d{5}$/)}
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Search className="h-4 w-4 mr-1" />
-                  Search
-                </Button>
-              </div>
-              
-              {userLocation && (
-                <p className="text-xs text-gray-500">
-                  Currently showing stores near: {userLocation.zipCode || `${userLocation.latitude.toFixed(3)}, ${userLocation.longitude.toFixed(3)}`}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Loading State */}
-        {isLoadingStores && (
-          <Card className="mb-6">
-            <CardContent className="p-4 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-600">Finding nearby stores...</p>
             </CardContent>
           </Card>
         )}
 
         {/* Stores List */}
-        <div className="space-y-4">
-          {nearbyStores.map((store, index) => (
-            <Card key={store.id} className={index === 0 ? 'ring-2 ring-blue-500' : ''}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="font-semibold">{store.name}</h3>
-                      {index === 0 && (
-                        <Badge className="bg-blue-100 text-blue-800 text-xs">Closest</Badge>
+        {nearbyStores.length > 0 ? (
+          <div className="space-y-4">
+            {nearbyStores.map((store) => (
+              <Card key={store.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-6">
+                  <div className="grid lg:grid-cols-4 gap-4">
+                    {/* Store Info */}
+                    <div className="lg:col-span-2">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-xl font-semibold">{store.name}</h3>
+                        <Badge 
+                          variant={store.availability?.status === 'in-stock' ? 'default' : 'secondary'}
+                          className={`${
+                            store.availability?.color === 'green' ? 'bg-green-100 text-green-800' :
+                            store.availability?.color === 'orange' ? 'bg-orange-100 text-orange-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {store.availability?.label || 'Call to Confirm'}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-gray-600 mb-2">{store.address}</p>
+                      
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {store.distanceFormatted}
+                        </div>
+                        {store.rating && (
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            {store.rating} ({store.userRatingCount || 0})
+                          </div>
+                        )}
+                        {/* FIXED - Show likelihood score for debugging */}
+                        {store.likelihood && (
+                          <div className="flex items-center gap-1">
+                            <Target className="h-4 w-4" />
+                            {store.likelihood}% likely
+                          </div>
+                        )}
+                      </div>
+
+                      {store.services && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {store.services.slice(0, 3).map((service, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {service}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <div className="flex items-center space-x-1 mb-2">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm text-gray-600">{store.rating}</span>
-                      <span className="text-sm text-gray-400">•</span>
-                      <span className="text-sm text-gray-600">{store.distanceFormatted}</span>
+
+                    {/* Price & Hours */}
+                    <div>
+                      <div className="mb-3">
+                        <div className="flex items-center gap-1 mb-1">
+                          <DollarSign className="h-4 w-4 text-green-600" />
+                          <span className="font-medium">Estimated Price</span>
+                        </div>
+                        <p className="text-lg font-semibold text-green-600">
+                          {store.estimatedPrice?.formatted || store.estimatedPrice?.range || 'Call for Price'}
+                        </p>
+                      </div>
+
+                      {store.hours && (
+                        <div>
+                          <div className="flex items-center gap-1 mb-1">
+                            <Clock className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium">Hours</span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {store.hours.monday || 'Call for hours'}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600">{store.address}</p>
-                    <p className="text-sm text-gray-600">{store.city}, {store.state} {store.zipCode}</p>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Availability</p>
-                    <Badge 
-                      variant={store.availability?.status === 'in-stock' ? 'default' : 'secondary'}
-                      className={store.availability?.status === 'in-stock' ? 'bg-green-100 text-green-800' : ''}
-                    >
-                      {store.availability?.label || 'Check Store'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Est. Price</p>
-                    <p className="text-lg font-bold">
-                      ${store.estimatedPrice?.price || '24.99'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">
-                      {store.hours?.monday || '9:00 AM - 6:00 PM'}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{store.phone}</span>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2">
-                  <Button 
-                    onClick={() => getDirections(store)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                    size="sm"
-                  >
-                    <Navigation className="mr-2 h-4 w-4" />
-                    Directions
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => window.open(store.website, '_blank')}
-                    size="sm"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {store.services && (
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-xs text-gray-500 mb-1">Services:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {store.services.slice(0, 3).map((service, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {service}
-                        </Badge>
-                      ))}
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2">
+                      <Button 
+                        onClick={() => getDirections(store)}
+                        className="w-full"
+                        size="sm"
+                      >
+                        <Navigation className="h-4 w-4 mr-2" />
+                        Directions
+                      </Button>
+                      
+                      {store.phone && (
+                        <Button 
+                          onClick={() => callStore(store)}
+                          variant="outline"
+                          className="w-full"
+                          size="sm"
+                        >
+                          <Phone className="h-4 w-4 mr-2" />
+                          Call Store
+                        </Button>
+                      )}
+                      
+                      {(store.website || store.googleMapsUri) && (
+                        <Button 
+                          onClick={() => visitWebsite(store)}
+                          variant="outline"
+                          className="w-full"
+                          size="sm"
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Visit Website
+                        </Button>
+                      )}
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
 
-        {/* Bottom Action */}
-        <div className="mt-6">
-          <Button 
-            variant="outline" 
-            onClick={() => setCurrentScreen('home')}
-            className="w-full"
-            size="lg"
-          >
-            <Camera className="mr-2 h-5 w-5" />
-            Identify Another Part
-          </Button>
-        </div>
+                  {/* AI Reason (for debugging) */}
+                  {store.aiReason && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <p className="text-xs text-gray-500">
+                        <strong>AI Analysis:</strong> {store.aiReason}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Stores Found</h3>
+              <p className="text-gray-600 mb-4">
+                We couldn't find any stores within 5 miles that carry this part.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={() => setCurrentScreen('results')} variant="outline">
+                  Try Different Location
+                </Button>
+                <Button onClick={resetToHome}>
+                  New Search
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
-  )
+  );
 
-  // Main render logic
-  if (isProcessing) {
-    return renderProcessingScreen()
-  }
-
-  switch (currentScreen) {
-    case 'home':
-      return renderHomeScreen()
-    case 'results':
-      return renderResultsScreen()
-    case 'stores':
-      return renderStoresScreen()
-    default:
-      return renderHomeScreen()
-  }
+  return renderScreen();
 }
 
 export default App

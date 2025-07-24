@@ -1,5 +1,5 @@
-// AI-Powered Store Locator Service
-// Uses AI to dynamically find real stores that carry specific appliance parts
+// AI-Powered Store Locator Service - FIXED VERSION
+// Uses AI to dynamically find real stores that carry specific appliance parts with proper distance filtering
 
 import { geolocationService } from './geolocation.js';
 
@@ -14,11 +14,11 @@ class AIStoreLocatorService {
    * Find stores near user location that carry the specified part using AI
    * @param {Object} part - The identified part object
    * @param {Object} userLocation - User's location {latitude, longitude}
-   * @param {number} maxDistance - Maximum distance in miles (default: 25)
+   * @param {number} maxDistance - Maximum distance in miles (default: 5)
    * @returns {Promise<Array>} Array of stores sorted by distance
    */
-  async findNearbyStores(part, userLocation, maxDistance = 25) {
-    console.log(`AI Store Locator: Finding stores for part: ${part.name}`);
+  async findNearbyStores(part, userLocation, maxDistance = 5) {
+    console.log(`AI Store Locator: Finding stores within ${maxDistance} miles for part: ${part.name}`);
     console.log('User location:', userLocation);
 
     try {
@@ -26,7 +26,7 @@ class AIStoreLocatorService {
       const storeTypes = await this.determineStoreTypes(part.name, part.category);
       console.log('AI determined store types:', storeTypes);
 
-      // Step 2: Find nearby stores using Google Places API
+      // Step 2: Find nearby stores using Google Places API with strict distance limit
       const stores = await this.searchRealNearbyStores(userLocation, storeTypes, maxDistance);
       console.log(`Found nearby stores: ${stores.length}`);
 
@@ -34,18 +34,80 @@ class AIStoreLocatorService {
       const verifiedStores = await this.verifyPartAvailability(stores, part.name, part.category);
       console.log(`Verified stores that carry part: ${verifiedStores.length}`);
 
-      // Step 4: Sort by distance and return top results
-      const sortedStores = this.sortByDistance(verifiedStores, userLocation);
-      const finalResults = sortedStores.slice(0, 10); // Top 10 results
+      // Step 4: FIXED - Apply strict distance filtering and sort by distance
+      const filteredStores = this.applyStrictDistanceFilter(verifiedStores, userLocation, maxDistance);
+      const sortedStores = this.sortByDistanceAndRelevance(filteredStores, userLocation);
+      
+      // FIXED - Return only top 5 closest stores instead of 10
+      const finalResults = sortedStores.slice(0, 5);
 
-      console.log(`AI Store Locator: Found ${finalResults.length} stores within ${maxDistance} miles`);
+      console.log(`AI Store Locator: Returning ${finalResults.length} stores within ${maxDistance} miles`);
+      
+      // Log final results for debugging
+      finalResults.forEach(store => {
+        console.log(`- ${store.name}: ${store.distanceFormatted} (likelihood: ${store.likelihood}%)`);
+      });
+      
       return finalResults;
 
     } catch (error) {
       console.error('AI Store Locator error:', error);
-      // Fallback to basic store generation
-      return this.generateFallbackStores(userLocation, part.name);
+      // FIXED - Fallback with proper distance filtering
+      return this.generateFallbackStores(userLocation, part.name, maxDistance);
     }
+  }
+
+  /**
+   * FIXED - Apply strict distance filtering to ensure no stores exceed the limit
+   * @param {Array} stores - Array of stores
+   * @param {Object} userLocation - User's location
+   * @param {number} maxDistance - Maximum distance in miles
+   * @returns {Array} Stores within the distance limit
+   */
+  applyStrictDistanceFilter(stores, userLocation, maxDistance) {
+    return stores.filter(store => {
+      const distance = store.distance || geolocationService.calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        store.coordinates.lat,
+        store.coordinates.lng
+      );
+      
+      store.distance = distance;
+      store.distanceFormatted = `${Math.round(distance * 10) / 10} mi`;
+      
+      const withinRange = distance <= maxDistance;
+      if (!withinRange) {
+        console.log(`Filtering out ${store.name} - ${distance.toFixed(1)} mi exceeds ${maxDistance} mi limit`);
+      }
+      
+      return withinRange;
+    });
+  }
+
+  /**
+   * FIXED - Enhanced sorting by distance and relevance
+   * @param {Array} stores - Array of stores
+   * @param {Object} userLocation - User's location
+   * @returns {Array} Stores sorted by relevance and distance
+   */
+  sortByDistanceAndRelevance(stores, userLocation) {
+    return stores.map(store => {
+      // Calculate relevance score: higher likelihood and closer distance = higher score
+      const likelihood = store.likelihood || 50;
+      const distance = store.distance || 999;
+      
+      // Relevance score: likelihood bonus minus distance penalty
+      store.relevanceScore = likelihood - (distance * 10); // Each mile reduces score by 10 points
+      
+      return store;
+    }).sort((a, b) => {
+      // Primary sort by relevance score, secondary by distance
+      if (Math.abs(a.relevanceScore - b.relevanceScore) > 15) {
+        return b.relevanceScore - a.relevanceScore; // Higher relevance first
+      }
+      return a.distance - b.distance; // Closer distance first for similar relevance
+    });
   }
 
   /**
@@ -137,7 +199,7 @@ Be very selective - only include store types that would actually have appliance 
   }
 
   /**
-   * Search for real nearby stores using Google Places API
+   * FIXED - Search for real nearby stores using Google Places API with strict distance control
    * @param {Object} userLocation - User's location
    * @param {Array} storeTypes - Store types to search for
    * @param {number} maxDistance - Maximum distance in miles
@@ -146,11 +208,14 @@ Be very selective - only include store types that would actually have appliance 
   async searchRealNearbyStores(userLocation, storeTypes, maxDistance) {
     if (!this.googlePlacesApiKey) {
       console.warn('Google Places API key not found, using fallback method');
-      return this.generateFallbackStores(userLocation, 'appliance part');
+      return this.generateFallbackStores(userLocation, 'appliance part', maxDistance);
     }
 
     try {
-      const radiusMeters = Math.min(maxDistance * 1609.34, 50000); // Convert miles to meters, max 50km
+      // FIXED - Convert miles to meters with stricter limit
+      const radiusMeters = Math.min(maxDistance * 1609.34, maxDistance * 1609.34); // No artificial cap, use actual distance
+      
+      console.log(`Searching Google Places within ${radiusMeters}m (${maxDistance} miles) radius`);
       
       const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
         method: 'POST',
@@ -161,7 +226,7 @@ Be very selective - only include store types that would actually have appliance 
         },
         body: JSON.stringify({
           includedTypes: storeTypes,
-          maxResultCount: 20,
+          maxResultCount: 20, // Get more results to filter from
           locationRestriction: {
             circle: {
               center: {
@@ -182,34 +247,55 @@ Be very selective - only include store types that would actually have appliance 
       
       if (!data.places || data.places.length === 0) {
         console.log('No places found, using fallback stores');
-        return this.generateFallbackStores(userLocation, 'appliance part');
+        return this.generateFallbackStores(userLocation, 'appliance part', maxDistance);
       }
 
-      // Convert Google Places results to our format
+      // Convert Google Places results to our format and calculate distances
       const stores = data.places
         .filter(place => place.businessStatus === 'OPERATIONAL')
-        .map(place => ({
-          id: place.name?.text || 'unknown',
-          name: place.displayName?.text || 'Unknown Store',
-          address: place.formattedAddress || 'Address not available',
-          coordinates: {
-            lat: place.location?.latitude || userLocation.latitude,
-            lng: place.location?.longitude || userLocation.longitude
-          },
-          googleMapsUri: place.googleMapsUri || '',
-          rating: place.rating || 0,
-          userRatingCount: place.userRatingCount || 0,
-          phone: place.internationalPhoneNumber || '',
-          types: place.types || [],
-          source: 'google_places'
-        }));
+        .map(place => {
+          const store = {
+            id: place.name?.text || 'unknown',
+            name: place.displayName?.text || 'Unknown Store',
+            address: place.formattedAddress || 'Address not available',
+            coordinates: {
+              lat: place.location?.latitude || userLocation.latitude,
+              lng: place.location?.longitude || userLocation.longitude
+            },
+            googleMapsUri: place.googleMapsUri || '',
+            rating: place.rating || 0,
+            userRatingCount: place.userRatingCount || 0,
+            phone: place.internationalPhoneNumber || '',
+            types: place.types || [],
+            source: 'google_places'
+          };
+          
+          // Calculate distance immediately
+          store.distance = geolocationService.calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            store.coordinates.lat,
+            store.coordinates.lng
+          );
+          store.distanceFormatted = `${Math.round(store.distance * 10) / 10} mi`;
+          
+          return store;
+        })
+        // FIXED - Filter out stores that exceed the distance limit
+        .filter(store => {
+          const withinRange = store.distance <= maxDistance;
+          if (!withinRange) {
+            console.log(`Google Places returned store outside range: ${store.name} at ${store.distance.toFixed(1)} mi`);
+          }
+          return withinRange;
+        });
 
-      console.log(`Google Places API returned ${stores.length} operational stores`);
+      console.log(`Google Places API returned ${stores.length} operational stores within ${maxDistance} miles`);
       return stores;
 
     } catch (error) {
       console.error('Error searching Google Places API:', error);
-      return this.generateFallbackStores(userLocation, 'appliance part');
+      return this.generateFallbackStores(userLocation, 'appliance part', maxDistance);
     }
   }
 
@@ -228,7 +314,7 @@ Be very selective - only include store types that would actually have appliance 
 
     try {
       const storeList = stores.slice(0, 15).map((store, index) => 
-        `${index + 1}. ${store.name} - ${store.address} (Types: ${store.types?.join(', ') || 'Unknown'})`
+        `${index + 1}. ${store.name} - ${store.address} (Types: ${store.types?.join(', ') || 'Unknown'}) [Distance: ${store.distanceFormatted}]`
       ).join('\n');
 
       const prompt = `You are an expert in appliance parts retail. I need to determine which of these stores would ACTUALLY carry this specific appliance part.
@@ -246,10 +332,11 @@ Consider:
 - Would this type of business actually stock appliance parts?
 - EXCLUDE restaurants, clothing stores, gas stations, banks, etc. (give them 0-10 scores)
 - ONLY include stores that would realistically have appliance parts inventory
+- Give HIGHER scores to stores that are CLOSER to the user (shorter distances)
 
 Respond with JSON array: [{"index": 1, "likelihood": 85, "reason": "Major home improvement store with appliance parts section"}, {"index": 2, "likelihood": 5, "reason": "Restaurant - does not carry appliance parts"}]
 
-Only include stores with likelihood >= 50 in your response. Be very selective.`;
+Only include stores with likelihood >= 60 in your response. Be very selective and prioritize closer stores.`;
 
       const response = await fetch(`${this.apiBase}/chat/completions`, {
         method: 'POST',
@@ -280,7 +367,8 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
 
         for (const evaluation of evaluations) {
           const storeIndex = evaluation.index - 1;
-          if (storeIndex >= 0 && storeIndex < stores.length && evaluation.likelihood >= 50) {
+          // FIXED - Increased minimum likelihood threshold to 60
+          if (storeIndex >= 0 && storeIndex < stores.length && evaluation.likelihood >= 60) {
             const store = { ...stores[storeIndex] };
             store.likelihood = evaluation.likelihood;
             store.aiReason = evaluation.reason;
@@ -306,7 +394,7 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
   }
 
   /**
-   * Heuristic filtering when AI is not available
+   * FIXED - Heuristic filtering when AI is not available with stricter criteria
    * @param {Array} stores - Array of stores
    * @param {string} partName - Name of the part
    * @param {string} partCategory - Category of the part
@@ -314,23 +402,29 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
    */
   heuristicStoreFiltering(stores, partName, partCategory) {
     return stores.map(store => {
-      let likelihood = 30; // Lower base likelihood - be more strict
+      let likelihood = 20; // FIXED - Lower base likelihood to be more strict
       const storeName = store.name.toLowerCase();
       const storeTypes = (store.types || []).join(' ').toLowerCase();
 
       // Strong positive indicators for appliance parts
-      if (storeName.includes('home depot') || storeName.includes('depot')) likelihood += 40;
-      if (storeName.includes('lowe') || storeName.includes("lowe's")) likelihood += 40;
-      if (storeName.includes('sears') || storeName.includes('parts')) likelihood += 45;
-      if (storeName.includes('appliance')) likelihood += 35;
-      if (storeName.includes('repair')) likelihood += 30;
-      if (storeName.includes('hardware')) likelihood += 25;
-      if (storeName.includes('ace hardware')) likelihood += 30;
+      if (storeName.includes('home depot') || storeName.includes('depot')) likelihood += 50;
+      if (storeName.includes('lowe') || storeName.includes("lowe's")) likelihood += 50;
+      if (storeName.includes('sears') || storeName.includes('parts')) likelihood += 55;
+      if (storeName.includes('appliance')) likelihood += 45;
+      if (storeName.includes('repair')) likelihood += 40;
+      if (storeName.includes('hardware')) likelihood += 35;
+      if (storeName.includes('ace hardware')) likelihood += 40;
 
       // Store type indicators
-      if (storeTypes.includes('home_goods_store')) likelihood += 20;
-      if (storeTypes.includes('hardware_store')) likelihood += 25;
-      if (storeTypes.includes('electronics_store')) likelihood += 15;
+      if (storeTypes.includes('home_goods_store')) likelihood += 25;
+      if (storeTypes.includes('hardware_store')) likelihood += 30;
+      if (storeTypes.includes('electronics_store')) likelihood += 20;
+
+      // FIXED - Distance bonus: closer stores get higher likelihood
+      const distance = store.distance || 999;
+      if (distance <= 1) likelihood += 15; // Very close stores get bonus
+      else if (distance <= 2) likelihood += 10;
+      else if (distance <= 3) likelihood += 5;
 
       // Strong negative indicators - these stores definitely don't carry appliance parts
       if (storeTypes.includes('restaurant') || storeName.includes('restaurant')) likelihood = 0;
@@ -356,33 +450,7 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
         likelihood: Math.max(0, Math.min(100, likelihood)),
         aiReason: likelihood > 0 ? 'Heuristic evaluation - likely carries appliance parts' : 'Heuristic evaluation - does not carry appliance parts'
       };
-    }).filter(store => store.likelihood >= 50); // Only return stores with 50%+ likelihood
-  }
-
-  /**
-   * Sort stores by distance from user location
-   * @param {Array} stores - Array of stores
-   * @param {Object} userLocation - User's location
-   * @returns {Array} Stores sorted by distance
-   */
-  sortByDistance(stores, userLocation) {
-    return stores.map(store => {
-      const distance = geolocationService.calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        store.coordinates.lat,
-        store.coordinates.lng
-      );
-
-      return {
-        ...store,
-        distance: distance,
-        distanceFormatted: `${Math.round(distance * 10) / 10} mi`,
-        availability: this.getAvailabilityStatus(store.likelihood),
-        estimatedPrice: this.getEstimatedPrice(store.likelihood),
-        directionsUrl: store.googleMapsUri || this.getDirectionsUrl(store.coordinates, userLocation)
-      };
-    }).sort((a, b) => a.distance - b.distance);
+    }).filter(store => store.likelihood >= 60); // FIXED - Increased threshold to 60%
   }
 
   /**
@@ -391,9 +459,9 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
    * @returns {Object} Availability status
    */
   getAvailabilityStatus(likelihood) {
-    if (likelihood >= 80) {
+    if (likelihood >= 85) {
       return { status: 'likely', label: 'Likely In Stock', color: 'green' };
-    } else if (likelihood >= 60) {
+    } else if (likelihood >= 70) {
       return { status: 'possible', label: 'May Have In Stock', color: 'orange' };
     } else {
       return { status: 'call', label: 'Call to Confirm', color: 'gray' };
@@ -425,22 +493,24 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
   }
 
   /**
-   * Generate fallback stores when APIs are not available
+   * FIXED - Generate fallback stores when APIs are not available with proper distance control
    * @param {Object} userLocation - User's location
    * @param {string} partName - Name of the part
-   * @returns {Array} Fallback stores
+   * @param {number} maxDistance - Maximum distance in miles
+   * @returns {Array} Fallback stores within distance limit
    */
-  generateFallbackStores(userLocation, partName) {
-    console.log('Generating fallback stores with realistic data');
+  generateFallbackStores(userLocation, partName, maxDistance = 5) {
+    console.log(`Generating fallback stores within ${maxDistance} miles`);
     
+    // FIXED - Generate stores at realistic distances within the limit
     const fallbackStores = [
       {
         id: 'fallback_hd',
         name: 'The Home Depot',
         address: `Near ${userLocation.latitude.toFixed(3)}, ${userLocation.longitude.toFixed(3)}`,
         coordinates: {
-          lat: userLocation.latitude + 0.01,
-          lng: userLocation.longitude + 0.01
+          lat: userLocation.latitude + (0.01 * Math.min(maxDistance / 5, 1)), // Scale with distance limit
+          lng: userLocation.longitude + (0.01 * Math.min(maxDistance / 5, 1))
         },
         rating: 4.2,
         userRatingCount: 1250,
@@ -455,8 +525,8 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
         name: "Lowe's Home Improvement",
         address: `Near ${userLocation.latitude.toFixed(3)}, ${userLocation.longitude.toFixed(3)}`,
         coordinates: {
-          lat: userLocation.latitude - 0.01,
-          lng: userLocation.longitude + 0.01
+          lat: userLocation.latitude - (0.008 * Math.min(maxDistance / 5, 1)),
+          lng: userLocation.longitude + (0.012 * Math.min(maxDistance / 5, 1))
         },
         rating: 4.1,
         userRatingCount: 980,
@@ -471,8 +541,8 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
         name: 'Local Appliance Parts Center',
         address: `Near ${userLocation.latitude.toFixed(3)}, ${userLocation.longitude.toFixed(3)}`,
         coordinates: {
-          lat: userLocation.latitude + 0.005,
-          lng: userLocation.longitude - 0.01
+          lat: userLocation.latitude + (0.005 * Math.min(maxDistance / 5, 1)),
+          lng: userLocation.longitude - (0.008 * Math.min(maxDistance / 5, 1))
         },
         rating: 4.5,
         userRatingCount: 156,
@@ -481,42 +551,28 @@ Only include stores with likelihood >= 50 in your response. Be very selective.`;
         likelihood: 92,
         aiReason: 'Specialized appliance parts retailer',
         source: 'fallback'
-      },
-      {
-        id: 'fallback_ace',
-        name: 'Ace Hardware',
-        address: `Near ${userLocation.latitude.toFixed(3)}, ${userLocation.longitude.toFixed(3)}`,
-        coordinates: {
-          lat: userLocation.latitude - 0.005,
-          lng: userLocation.longitude - 0.01
-        },
-        rating: 4.3,
-        userRatingCount: 324,
-        phone: '(555) 456-7890',
-        types: ['hardware_store'],
-        likelihood: 65,
-        aiReason: 'Hardware store that may carry appliance parts',
-        source: 'fallback'
-      },
-      {
-        id: 'fallback_sears',
-        name: 'Sears Parts & Repair',
-        address: `Near ${userLocation.latitude.toFixed(3)}, ${userLocation.longitude.toFixed(3)}`,
-        coordinates: {
-          lat: userLocation.latitude + 0.015,
-          lng: userLocation.longitude
-        },
-        rating: 4.0,
-        userRatingCount: 89,
-        phone: '(555) 567-8901',
-        types: ['store', 'establishment'],
-        likelihood: 95,
-        aiReason: 'Appliance parts specialist with extensive inventory',
-        source: 'fallback'
       }
     ];
 
-    return this.sortByDistance(fallbackStores, userLocation);
+    // Calculate distances and filter by maxDistance
+    const storesWithDistance = fallbackStores.map(store => {
+      store.distance = geolocationService.calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        store.coordinates.lat,
+        store.coordinates.lng
+      );
+      store.distanceFormatted = `${Math.round(store.distance * 10) / 10} mi`;
+      
+      // Add availability and pricing
+      store.availability = this.getAvailabilityStatus(store.likelihood);
+      store.estimatedPrice = this.getEstimatedPrice(store.likelihood);
+      store.directionsUrl = this.getDirectionsUrl(store.coordinates, userLocation);
+      
+      return store;
+    }).filter(store => store.distance <= maxDistance);
+
+    return storesWithDistance.sort((a, b) => a.distance - b.distance);
   }
 }
 
