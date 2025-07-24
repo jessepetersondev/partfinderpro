@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "description": "AI-powered appliance part identification app",
   "main": "src/main.jsx",
-  "keywords": ["appliance", "parts", "AI", "repair", "identification"],
+  "keywords": [
+    "appliance",
+    "parts",
+    "AI",
+    "repair",
+    "identification"
+  ],
   "author": "PartFinder Pro Team",
   "license": "MIT",
   "homepage": "https://partfinderpro.com",
@@ -26,6 +32,16 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/app": "^7.0.1",
+    "@capacitor/browser": "^7.0.1",
+    "@capacitor/camera": "^7.0.1",
+    "@capacitor/cli": "^7.4.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/geolocation": "^7.1.4",
+    "@capacitor/ios": "^7.4.2",
+    "@capacitor/splash-screen": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.1",
     "@radix-ui/react-accordion": "^1.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.4",
     "@radix-ui/react-aspect-ratio": "^1.1.1",
@@ -82,4 +98,3 @@
     "vite": "^6.3.5"
   }
 }
-
