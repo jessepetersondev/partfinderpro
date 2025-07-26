@@ -16,7 +16,7 @@ class ProductPurchaseService {
         baseUrl: 'https://www.amazon.com'
       },
       ebay: {
-        campaignId: import.meta.env.VITE_EBAY_CAMPAIGN_ID || '5338239407',
+        campaignId: import.meta.env.VITE_EBAY_CAMPAIGN_ID || 'partfinderpro',
         baseUrl: 'https://www.ebay.com'
       },
       walmart: {
