@@ -129,6 +129,55 @@ function App() {
   }, []);
 
   /**
+   * FIXED: Create proper search query with validation and fallbacks
+   */
+  const createSearchQuery = (part) => {
+    if (!part) {
+      console.warn('No part data provided for search query');
+      return 'appliance part';
+    }
+
+    // FIXED: Ensure all fields exist and have fallbacks
+    const brand = part.brand || '';
+    const name = part.name || '';
+    const partNumber = part.partNumber || '';
+    const category = part.category || '';
+
+    console.log('Creating search query from part data:', {
+      brand,
+      name,
+      partNumber,
+      category,
+      fullPart: part
+    });
+
+    // FIXED: Build search query with multiple fallback strategies
+    let searchTerms = [];
+
+    // Primary strategy: Use all available information
+    if (brand && brand !== 'Not Visible') searchTerms.push(brand);
+    if (name && name !== 'Not Visible') searchTerms.push(name);
+    if (partNumber && partNumber !== 'Not Visible') searchTerms.push(partNumber);
+
+    // Fallback strategy: Use category if main terms are missing
+    if (searchTerms.length === 0 && category && category !== 'Not Visible') {
+      searchTerms.push(category);
+      searchTerms.push('appliance part');
+    }
+
+    // Final fallback: Generic appliance part search
+    if (searchTerms.length === 0) {
+      searchTerms = ['appliance', 'part', 'replacement'];
+    }
+
+    const searchQuery = searchTerms.join(' ').trim();
+    
+    console.log('Generated search query:', searchQuery);
+    
+    return searchQuery;
+  };
+
+  /**
    * NEW: Load product offers from multiple stores
    */
   const loadProductOffers = async (part) => {
@@ -142,8 +191,8 @@ function App() {
       if (services && services.productPurchase && services.productPurchase.isConfigured()) {
         console.log('🛒 Loading product offers...');
         
-        // Create search query from part information
-        const searchQuery = `${part.brand || ''} ${part.name || ''} ${part.partNumber || ''}`.trim();
+        // FIXED: Use improved search query creation
+        const searchQuery = createSearchQuery(part);
         
         const offers = await services.productPurchase.searchProducts(searchQuery, {
           maxResults: 10,
@@ -168,50 +217,62 @@ function App() {
   };
 
   /**
-   * NEW: Generate fallback offers when API is not available
+   * FIXED: Generate fallback offers with proper search query handling
    */
   const generateFallbackOffers = (part) => {
-    const searchQuery = encodeURIComponent(`${part.brand || ''} ${part.name || ''} ${part.partNumber || ''}`.trim());
+    // FIXED: Use improved search query creation and encoding
+    const searchQuery = createSearchQuery(part);
+    const encodedSearchQuery = encodeURIComponent(searchQuery);
+    
+    console.log('Generating fallback offers with search query:', searchQuery);
+    
+    // FIXED: Ensure part data exists with proper fallbacks
+    const partName = part?.name || 'Appliance Part';
+    const partNumber = part?.partNumber || '';
+    const displayTitle = partNumber ? `${partName} - ${partNumber}` : partName;
     
     return [
       {
         id: 'amazon-fallback',
-        title: `${part.name} - ${part.partNumber}`,
+        title: displayTitle,
         store: 'Amazon',
         price: 45.99,
         currency: 'USD',
         availability: 'In Stock',
-        affiliateUrl: `https://www.amazon.com/s?k=${searchQuery}&tag=partfinderpro-20`,
+        affiliateUrl: `https://www.amazon.com/s?k=${encodedSearchQuery}&tag=partfinderpro-20`,
         confidence: 85,
-        isFallback: true
+        isFallback: true,
+        searchQuery: searchQuery // FIXED: Store original search query for debugging
       },
       {
         id: 'ebay-fallback',
-        title: `${part.name} - ${part.partNumber}`,
+        title: displayTitle,
         store: 'eBay',
         price: 42.50,
         currency: 'USD',
         availability: 'In Stock',
-        affiliateUrl: `https://www.ebay.com/sch/i.html?_nkw=${searchQuery}`,
+        affiliateUrl: `https://www.ebay.com/sch/i.html?_nkw=${encodedSearchQuery}`,
         confidence: 80,
-        isFallback: true
+        isFallback: true,
+        searchQuery: searchQuery // FIXED: Store original search query for debugging
       },
       {
         id: 'walmart-fallback',
-        title: `${part.name} - ${part.partNumber}`,
+        title: displayTitle,
         store: 'Walmart',
         price: 48.99,
         currency: 'USD',
         availability: 'In Stock',
-        affiliateUrl: `https://www.walmart.com/search?q=${searchQuery}`,
+        affiliateUrl: `https://www.walmart.com/search?q=${encodedSearchQuery}`,
         confidence: 75,
-        isFallback: true
+        isFallback: true,
+        searchQuery: searchQuery // FIXED: Store original search query for debugging
       }
     ];
   };
 
   /**
-   * NEW: Handle buying a product
+   * FIXED: Handle buying a product with enhanced debugging
    */
   const handleBuyProduct = (offer) => {
     if (!offer || !offer.affiliateUrl) {
@@ -219,16 +280,28 @@ function App() {
       return;
     }
 
-    // Track the purchase attempt (for analytics)
+    // FIXED: Enhanced tracking and debugging
     console.log('🛒 User clicking buy button for:', {
       store: offer.store,
       product: offer.title,
       price: offer.price,
-      partNumber: selectedPart?.partNumber
+      partNumber: selectedPart?.partNumber,
+      searchQuery: offer.searchQuery || 'not available',
+      affiliateUrl: offer.affiliateUrl,
+      selectedPartData: selectedPart
     });
 
-    // Open affiliate URL in new tab
-    window.open(offer.affiliateUrl, '_blank', 'noopener,noreferrer');
+    // FIXED: Validate URL before opening
+    try {
+      const url = new URL(offer.affiliateUrl);
+      console.log('✅ Opening valid URL:', url.href);
+      
+      // Open affiliate URL in new tab
+      window.open(offer.affiliateUrl, '_blank', 'noopener,noreferrer');
+    } catch (urlError) {
+      console.error('❌ Invalid URL:', offer.affiliateUrl, urlError);
+      setError('Invalid purchase link. Please try a different option.');
+    }
   };
 
   /**
@@ -304,7 +377,7 @@ function App() {
   };
 
   /**
-   * Process captured/uploaded image
+   * FIXED: Process captured/uploaded image with enhanced data validation
    */
   const processImage = async (imageData) => {
     setIsProcessing(true);
@@ -326,6 +399,9 @@ function App() {
           
           if (identifiedPart) {
             identifiedPart.source = 'ai';
+            
+            // FIXED: Validate and clean part data
+            identifiedPart = validateAndCleanPartData(identifiedPart);
           }
         } catch (aiError) {
           console.warn('AI identification failed, falling back to demo mode:', aiError);
@@ -337,11 +413,15 @@ function App() {
         // Fallback to demo mode
         console.log('Using demo mode for part identification');
         await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing
-        identifiedPart = mockParts[0]; // Use first mock part
+        identifiedPart = { ...mockParts[0] }; // Use first mock part
         identifiedPart.source = 'demo';
+        
+        // FIXED: Ensure demo data is also validated
+        identifiedPart = validateAndCleanPartData(identifiedPart);
       }
 
       if (identifiedPart) {
+        console.log('✅ Part identified:', identifiedPart);
         setSelectedPart(identifiedPart);
         setCurrentScreen('results');
         
@@ -356,6 +436,56 @@ function App() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  /**
+   * FIXED: Validate and clean part data to prevent "Not Visible" issues
+   */
+  const validateAndCleanPartData = (part) => {
+    if (!part) return null;
+
+    // FIXED: Clean up any "Not Visible" or invalid values
+    const cleanedPart = { ...part };
+
+    // Clean string fields
+    ['name', 'brand', 'partNumber', 'category', 'description'].forEach(field => {
+      if (cleanedPart[field] === 'Not Visible' || 
+          cleanedPart[field] === 'undefined' || 
+          cleanedPart[field] === 'null' || 
+          !cleanedPart[field] || 
+          typeof cleanedPart[field] !== 'string') {
+        
+        // Provide sensible defaults based on field
+        switch (field) {
+          case 'name':
+            cleanedPart[field] = 'Appliance Part';
+            break;
+          case 'brand':
+            cleanedPart[field] = 'Generic';
+            break;
+          case 'partNumber':
+            cleanedPart[field] = 'Unknown';
+            break;
+          case 'category':
+            cleanedPart[field] = 'Parts';
+            break;
+          case 'description':
+            cleanedPart[field] = 'Replacement appliance part';
+            break;
+          default:
+            cleanedPart[field] = '';
+        }
+      }
+    });
+
+    // FIXED: Ensure confidence is a valid number
+    if (!cleanedPart.confidence || isNaN(cleanedPart.confidence)) {
+      cleanedPart.confidence = 75; // Default confidence
+    }
+
+    console.log('✅ Cleaned part data:', cleanedPart);
+    
+    return cleanedPart;
   };
 
   /**
@@ -377,6 +507,9 @@ function App() {
       } else {
         demoPartData.source = 'demo';
       }
+
+      // FIXED: Ensure demo data is validated
+      demoPartData = validateAndCleanPartData(demoPartData);
 
       // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -952,7 +1085,7 @@ function App() {
           </Card>
         </div>
 
-        {/* NEW: Purchase Options */}
+        {/* FIXED: Purchase Options with enhanced debugging */}
         {showPurchaseOptions && (
           <Card className="mt-6">
             <CardHeader>
@@ -981,6 +1114,12 @@ function App() {
                           <span className="font-semibold text-lg">{offer.store}</span>
                           {offer.isFallback && (
                             <Badge variant="outline" className="text-xs">Search</Badge>
+                          )}
+                          {/* FIXED: Show search query for debugging */}
+                          {offer.searchQuery && (
+                            <Badge variant="outline" className="text-xs bg-blue-50">
+                              Query: {offer.searchQuery.substring(0, 20)}...
+                            </Badge>
                           )}
                         </div>
                         <div className="text-right">
@@ -1024,14 +1163,22 @@ function App() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(`https://www.amazon.com/s?k=${encodeURIComponent(selectedPart?.name + ' ' + selectedPart?.partNumber)}`, '_blank')}
+                      onClick={() => {
+                        const searchQuery = createSearchQuery(selectedPart);
+                        const encodedQuery = encodeURIComponent(searchQuery);
+                        window.open(`https://www.amazon.com/s?k=${encodedQuery}`, '_blank');
+                      }}
                     >
                       Search Amazon
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(selectedPart?.name + ' ' + selectedPart?.partNumber)}`, '_blank')}
+                      onClick={() => {
+                        const searchQuery = createSearchQuery(selectedPart);
+                        const encodedQuery = encodeURIComponent(searchQuery);
+                        window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`, '_blank');
+                      }}
                     >
                       Search eBay
                     </Button>
