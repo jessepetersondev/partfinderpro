@@ -29,6 +29,17 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    
+    /* NEW: Purchase functionality colors */
+    --purchase-primary: 34 100% 50%;
+    --purchase-primary-foreground: 0 0% 100%;
+    --purchase-secondary: 120 100% 25%;
+    --purchase-secondary-foreground: 0 0% 100%;
+    --purchase-accent: 45 100% 51%;
+    --purchase-accent-foreground: 0 0% 0%;
+    --purchase-success: 142 76% 36%;
+    --purchase-warning: 38 92% 50%;
+    --purchase-error: 0 84% 60%;
   }
 
   .dark {
@@ -56,6 +67,17 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    
+    /* NEW: Purchase functionality colors for dark mode */
+    --purchase-primary: 34 100% 60%;
+    --purchase-primary-foreground: 0 0% 0%;
+    --purchase-secondary: 120 100% 35%;
+    --purchase-secondary-foreground: 0 0% 100%;
+    --purchase-accent: 45 100% 61%;
+    --purchase-accent-foreground: 0 0% 0%;
+    --purchase-success: 142 76% 46%;
+    --purchase-warning: 38 92% 60%;
+    --purchase-error: 0 84% 70%;
   }
 }
 
@@ -67,3 +89,242 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* NEW: Purchase functionality styles */
+@layer components {
+  /* Purchase button styles */
+  .purchase-button {
+    @apply bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95;
+    background: linear-gradient(135deg, hsl(var(--purchase-secondary)), hsl(var(--purchase-primary)));
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+  }
+
+  .purchase-button:hover {
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+  }
+
+  .purchase-button:disabled {
+    @apply opacity-60 cursor-not-allowed transform-none;
+    box-shadow: none;
+  }
+
+  /* Purchase offer card styles */
+  .purchase-offer-card {
+    @apply border border-gray-200 rounded-lg p-4 transition-all duration-200 hover:shadow-md hover:border-blue-300 bg-white;
+  }
+
+  .purchase-offer-card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Purchase price styles */
+  .purchase-price {
+    @apply text-xl font-bold;
+    color: hsl(var(--purchase-secondary));
+  }
+
+  .purchase-price-large {
+    @apply text-2xl font-bold;
+    color: hsl(var(--purchase-secondary));
+  }
+
+  /* Purchase store badge styles */
+  .purchase-store-badge {
+    @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+    background: hsl(var(--purchase-accent));
+    color: hsl(var(--purchase-accent-foreground));
+  }
+
+  /* Purchase availability badges */
+  .purchase-availability-in-stock {
+    @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .purchase-availability-limited {
+    @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .purchase-availability-out-of-stock {
+    @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* Purchase confidence indicator */
+  .purchase-confidence {
+    @apply text-sm text-gray-600 flex items-center gap-1;
+  }
+
+  .purchase-confidence-high {
+    @apply text-green-600;
+  }
+
+  .purchase-confidence-medium {
+    @apply text-yellow-600;
+  }
+
+  .purchase-confidence-low {
+    @apply text-red-600;
+  }
+
+  /* Purchase loading states */
+  .purchase-loading-container {
+    @apply flex items-center justify-center py-8;
+  }
+
+  .purchase-loading-spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600;
+  }
+
+  .purchase-loading-text {
+    @apply text-gray-600 ml-3;
+  }
+
+  /* Purchase section container */
+  .purchase-section {
+    @apply mt-6 p-6 bg-gray-50 rounded-lg border border-gray-200;
+  }
+
+  .purchase-section-header {
+    @apply flex items-center gap-2 mb-4 text-lg font-semibold text-gray-900;
+  }
+
+  /* Purchase grid layout */
+  .purchase-offers-grid {
+    @apply grid gap-4;
+  }
+
+  /* Purchase action buttons */
+  .purchase-action-button {
+    @apply bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200;
+  }
+
+  .purchase-action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+  }
+
+  .purchase-action-button:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  /* Purchase fallback styles */
+  .purchase-fallback-container {
+    @apply text-center py-8 px-4;
+  }
+
+  .purchase-fallback-text {
+    @apply text-gray-600 mb-4;
+  }
+
+  .purchase-fallback-links {
+    @apply flex gap-2 justify-center flex-wrap;
+  }
+
+  .purchase-fallback-link {
+    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200;
+  }
+
+  /* Purchase toggle button */
+  .purchase-toggle-button {
+    @apply w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2;
+  }
+
+  .purchase-toggle-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+  }
+
+  /* Purchase comparison table */
+  .purchase-comparison-row {
+    @apply flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0;
+  }
+
+  .purchase-comparison-store {
+    @apply font-medium text-gray-900;
+  }
+
+  .purchase-comparison-price {
+    @apply font-bold text-green-600;
+  }
+
+  .purchase-comparison-availability {
+    @apply text-sm text-gray-600;
+  }
+
+  /* Purchase success states */
+  .purchase-success-message {
+    @apply bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg;
+  }
+
+  .purchase-warning-message {
+    @apply bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg;
+  }
+
+  .purchase-error-message {
+    @apply bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg;
+  }
+}
+
+/* NEW: Responsive design for purchase functionality */
+@layer utilities {
+  @media (max-width: 768px) {
+    .purchase-offers-grid {
+      @apply grid-cols-1;
+    }
+    
+    .purchase-offer-card {
+      @apply p-3;
+    }
+    
+    .purchase-price-large {
+      @apply text-xl;
+    }
+    
+    .purchase-fallback-links {
+      @apply flex-col items-center;
+    }
+    
+    .purchase-toggle-button {
+      @apply text-sm py-2 px-4;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .purchase-section {
+      @apply p-4 mx-2;
+    }
+    
+    .purchase-offer-card {
+      @apply p-2;
+    }
+    
+    .purchase-action-button {
+      @apply text-sm py-1 px-3;
+    }
+  }
+}
+
+/* NEW: Purchase animation utilities */
+@layer utilities {
+  .purchase-animate-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  .purchase-animate-slide {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  .purchase-animate-pulse {
+    animation: pulse 2s infinite;
+  }
+  
+  .purchase-hover-lift:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease-out;
+  }
+  
+  .purchase-hover-scale:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s ease-out;
+  }
+}
+

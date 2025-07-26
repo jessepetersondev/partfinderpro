@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge.jsx'
 import { Input } from '@/components/ui/input.jsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
-import { Camera, Search, MapPin, Star, Navigation, CheckCircle, Upload, Zap, Target, DollarSign, Play, AlertCircle, Clock, Phone, ExternalLink } from 'lucide-react'
+import { Camera, Search, MapPin, Star, Navigation, CheckCircle, Upload, Zap, Target, DollarSign, Play, AlertCircle, Clock, Phone, ExternalLink, ShoppingCart, Package } from 'lucide-react'
 import sampleSeal from './assets/sample-dishwasher-seal.jpg'
 import sampleFilter from './assets/sample-water-filter.jpg'
 import { useCapacitor } from './hooks/useCapacitor';
@@ -57,12 +57,13 @@ const loadAPIServices = async () => {
   if (apiServices) return apiServices;
   
   try {
-    const [configModule, imageModule, partsModule, geolocationModule, storeFinderModule] = await Promise.all([
+    const [configModule, imageModule, partsModule, geolocationModule, storeFinderModule, productPurchaseModule] = await Promise.all([
       import('./services/config.js').catch(() => null),
       import('./services/imageRecognition.js').catch(() => null),
       import('./services/partsDatabase.js').catch(() => null),
       import('./services/geolocation.js').catch(() => null),
-      import('./services/storeFinder.js').catch(() => null)
+      import('./services/storeFinder.js').catch(() => null),
+      import('./services/productPurchaseService.js').catch(() => null)
     ]);
 
     apiServices = {
@@ -71,6 +72,7 @@ const loadAPIServices = async () => {
       partsDatabase: partsModule?.partsDatabase || null,
       geolocation: geolocationModule?.geolocationService || null,
       storeFinder: storeFinderModule?.storeFinderService || null,
+      productPurchase: productPurchaseModule?.productPurchaseService || null,
       // CRITICAL FIX: Import the standalone validateImage function
       validateImage: imageModule?.validateImage || null
     };
@@ -99,6 +101,12 @@ function App() {
   const [apiStatus, setApiStatus] = useState({ ai: 'demo', location: 'demo', loaded: false })
   const [error, setError] = useState(null)
   const [zipCode, setZipCode] = useState('') // FIXED - Added ZIP code state
+  
+  // NEW: Purchase functionality state
+  const [productOffers, setProductOffers] = useState([])
+  const [isLoadingOffers, setIsLoadingOffers] = useState(false)
+  const [showPurchaseOptions, setShowPurchaseOptions] = useState(false)
+  
   const fileInputRef = useRef(null)
   const { takePicture, isCapacitorAvailable } = useCapacitor();
 
@@ -119,6 +127,109 @@ function App() {
 
     initializeServices();
   }, []);
+
+  /**
+   * NEW: Load product offers from multiple stores
+   */
+  const loadProductOffers = async (part) => {
+    if (!part) return;
+
+    setIsLoadingOffers(true);
+    
+    try {
+      const services = await loadAPIServices();
+      
+      if (services && services.productPurchase && services.productPurchase.isConfigured()) {
+        console.log('🛒 Loading product offers...');
+        
+        // Create search query from part information
+        const searchQuery = `${part.brand || ''} ${part.name || ''} ${part.partNumber || ''}`.trim();
+        
+        const offers = await services.productPurchase.searchProducts(searchQuery, {
+          maxResults: 10,
+          sortBy: 'RELEVANCE'
+        });
+        
+        // Filter offers with high confidence for appliance parts
+        const relevantOffers = offers.filter(offer => offer.confidence >= 60);
+        
+        setProductOffers(relevantOffers);
+        console.log(`✅ Found ${relevantOffers.length} relevant product offers`);
+      } else {
+        console.log('🔄 Product purchase service not configured, using fallback');
+        setProductOffers(generateFallbackOffers(part));
+      }
+    } catch (error) {
+      console.error('Error loading product offers:', error);
+      setProductOffers(generateFallbackOffers(part));
+    } finally {
+      setIsLoadingOffers(false);
+    }
+  };
+
+  /**
+   * NEW: Generate fallback offers when API is not available
+   */
+  const generateFallbackOffers = (part) => {
+    const searchQuery = encodeURIComponent(`${part.brand || ''} ${part.name || ''} ${part.partNumber || ''}`.trim());
+    
+    return [
+      {
+        id: 'amazon-fallback',
+        title: `${part.name} - ${part.partNumber}`,
+        store: 'Amazon',
+        price: 45.99,
+        currency: 'USD',
+        availability: 'In Stock',
+        affiliateUrl: `https://www.amazon.com/s?k=${searchQuery}&tag=partfinderpro-20`,
+        confidence: 85,
+        isFallback: true
+      },
+      {
+        id: 'ebay-fallback',
+        title: `${part.name} - ${part.partNumber}`,
+        store: 'eBay',
+        price: 42.50,
+        currency: 'USD',
+        availability: 'In Stock',
+        affiliateUrl: `https://www.ebay.com/sch/i.html?_nkw=${searchQuery}`,
+        confidence: 80,
+        isFallback: true
+      },
+      {
+        id: 'walmart-fallback',
+        title: `${part.name} - ${part.partNumber}`,
+        store: 'Walmart',
+        price: 48.99,
+        currency: 'USD',
+        availability: 'In Stock',
+        affiliateUrl: `https://www.walmart.com/search?q=${searchQuery}`,
+        confidence: 75,
+        isFallback: true
+      }
+    ];
+  };
+
+  /**
+   * NEW: Handle buying a product
+   */
+  const handleBuyProduct = (offer) => {
+    if (!offer || !offer.affiliateUrl) {
+      setError('Purchase link not available for this product.');
+      return;
+    }
+
+    // Track the purchase attempt (for analytics)
+    console.log('🛒 User clicking buy button for:', {
+      store: offer.store,
+      product: offer.title,
+      price: offer.price,
+      partNumber: selectedPart?.partNumber
+    });
+
+    // Open affiliate URL in new tab
+    window.open(offer.affiliateUrl, '_blank', 'noopener,noreferrer');
+  };
 
   /**
    * Handle camera capture
@@ -233,6 +344,9 @@ function App() {
       if (identifiedPart) {
         setSelectedPart(identifiedPart);
         setCurrentScreen('results');
+        
+        // NEW: Automatically load product offers
+        await loadProductOffers(identifiedPart);
       } else {
         setError('Could not identify the part. Please try a clearer image.');
       }
@@ -269,6 +383,9 @@ function App() {
       
       setSelectedPart(demoPartData);
       setCurrentScreen('results');
+      
+      // NEW: Load product offers for demo part
+      await loadProductOffers(demoPartData);
     } catch (error) {
       console.error('Error in demo mode:', error);
       setError('Demo mode error. Please try again.');
@@ -520,6 +637,9 @@ function App() {
     setLocationError(null);
     setError(null);
     setZipCode(''); // FIXED - Reset ZIP code
+    // NEW: Reset purchase state
+    setProductOffers([]);
+    setShowPurchaseOptions(false);
   };
 
   // Render different screens
@@ -639,7 +759,7 @@ function App() {
         </Card>
 
         {/* Features */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6 text-center">
               <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
@@ -661,6 +781,15 @@ function App() {
               <MapPin className="h-12 w-12 text-blue-500 mx-auto mb-4" />
               <h3 className="font-semibold mb-2">Find Local Stores</h3>
               <p className="text-sm text-gray-600">Locate nearby stores that carry your part</p>
+            </CardContent>
+          </Card>
+
+          {/* NEW: Purchase feature */}
+          <Card>
+            <CardContent className="p-6 text-center">
+              <ShoppingCart className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Direct Purchase</h3>
+              <p className="text-sm text-gray-600">Buy parts directly from trusted retailers</p>
             </CardContent>
           </Card>
         </div>
@@ -754,24 +883,47 @@ function App() {
                 </div>
               </div>
 
-              <Button 
-                onClick={handleFindStores}
-                className="w-full"
-                size="lg"
-                disabled={isLoadingStores}
-              >
-                {isLoadingStores ? (
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Finding Stores...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Find Local Stores
-                  </div>
-                )}
-              </Button>
+              {/* NEW: Purchase button */}
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => setShowPurchaseOptions(!showPurchaseOptions)}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  size="lg"
+                  disabled={isLoadingOffers}
+                >
+                  {isLoadingOffers ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Finding Best Prices...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      Buy This Part
+                    </div>
+                  )}
+                </Button>
+
+                <Button 
+                  onClick={handleFindStores}
+                  className="w-full"
+                  size="lg"
+                  disabled={isLoadingStores}
+                  variant="outline"
+                >
+                  {isLoadingStores ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                      Finding Stores...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Find Local Stores
+                    </div>
+                  )}
+                </Button>
+              </div>
 
               {/* FIXED - Add ZIP code search option */}
               {locationError && (
@@ -799,6 +951,96 @@ function App() {
             </CardContent>
           </Card>
         </div>
+
+        {/* NEW: Purchase Options */}
+        {showPurchaseOptions && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Purchase Options
+              </CardTitle>
+              <CardDescription>
+                Compare prices from multiple retailers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingOffers && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Finding best prices...</p>
+                </div>
+              )}
+
+              {!isLoadingOffers && productOffers.length > 0 && (
+                <div className="grid gap-4">
+                  {productOffers.map((offer, index) => (
+                    <div key={offer.id || index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-lg">{offer.store}</span>
+                          {offer.isFallback && (
+                            <Badge variant="outline" className="text-xs">Search</Badge>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {offer.price > 0 ? (
+                            <span className="text-xl font-bold text-green-600">
+                              ${offer.price.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">Price varies</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <p className="text-gray-600 text-sm mb-2">{offer.title}</p>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span>{offer.availability}</span>
+                          {offer.confidence && (
+                            <span>{offer.confidence}% match</span>
+                          )}
+                        </div>
+                        
+                        <Button 
+                          onClick={() => handleBuyProduct(offer)}
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-700"
+                        >
+                          {offer.isFallback ? 'Search on ' + offer.store : 'Buy Now'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!isLoadingOffers && productOffers.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">No purchase options found. Try searching manually:</p>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`https://www.amazon.com/s?k=${encodeURIComponent(selectedPart?.name + ' ' + selectedPart?.partNumber)}`, '_blank')}
+                    >
+                      Search Amazon
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(selectedPart?.name + ' ' + selectedPart?.partNumber)}`, '_blank')}
+                    >
+                      Search eBay
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Specifications and Compatibility */}
         <Card className="mt-6">
