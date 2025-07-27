@@ -4,137 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge.jsx'
 import { Input } from '@/components/ui/input.jsx'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
-import { Camera, Search, MapPin, Star, Navigation, CheckCircle, Upload, Zap, Target, DollarSign, Play, AlertCircle, Clock, Phone, ExternalLink, ShoppingCart, Package, Menu, X } from 'lucide-react'
+import { Camera, Search, MapPin, Star, Navigation, CheckCircle, Upload, Zap, Target, DollarSign, Play, AlertCircle, Clock, Phone, ExternalLink, ShoppingCart, Package } from 'lucide-react'
 import sampleSeal from './assets/sample-dishwasher-seal.jpg'
 import sampleFilter from './assets/sample-water-filter.jpg'
 import { useCapacitor } from './hooks/useCapacitor';
 import './App.css'
-
-// Logo Component
-const PartFinderLogo = ({ variant = 'default', size = 'md' }) => {
-  const sizeClasses = {
-    sm: 'h-8 w-8',
-    md: 'h-12 w-12',
-    lg: 'h-16 w-16',
-    xl: 'h-24 w-24'
-  };
-
-  const textSizeClasses = {
-    sm: 'text-lg',
-    md: 'text-2xl',
-    lg: 'text-3xl',
-    xl: 'text-4xl'
-  };
-
-  if (variant === 'icon-only') {
-    return (
-      <div className={`${sizeClasses[size]} relative`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-orange-500 rounded-xl shadow-lg"></div>
-        <div className="relative flex items-center justify-center h-full">
-          <div className="relative">
-            <div className="w-6 h-6 border-2 border-white rounded-full"></div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-3 h-3 border border-white rounded-sm transform rotate-45"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className={`${sizeClasses[size]} relative`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-orange-500 rounded-xl shadow-lg"></div>
-        <div className="relative flex items-center justify-center h-full">
-          <div className="relative">
-            <div className="w-6 h-6 border-2 border-white rounded-full"></div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-3 h-3 border border-white rounded-sm transform rotate-45"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      {variant !== 'icon-only' && (
-        <div className="flex flex-col">
-          <span className={`${textSizeClasses[size]} font-bold text-blue-600 leading-none`}>
-            PartFinder
-          </span>
-          <span className={`${textSizeClasses[size]} font-bold text-orange-500 leading-none`}>
-            Pro
-          </span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Professional Header Component
-const Header = ({ onMenuClick, showMenu = false }) => {
-  return (
-    <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <PartFinderLogo size="sm" />
-          
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors">Features</a>
-            <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 transition-colors">How It Works</a>
-            <a href="#support" className="text-gray-600 hover:text-blue-600 transition-colors">Support</a>
-          </nav>
-
-          {/* Mobile Menu Button */}
-          <button 
-            onClick={onMenuClick}
-            className="md:hidden p-2 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-50"
-          >
-            {showMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Navigation */}
-      {showMenu && (
-        <div className="md:hidden bg-white border-t border-gray-100">
-          <div className="px-4 py-2 space-y-1">
-            <a href="#features" className="block px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md">Features</a>
-            <a href="#how-it-works" className="block px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md">How It Works</a>
-            <a href="#support" className="block px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-md">Support</a>
-          </div>
-        </div>
-      )}
-    </header>
-  );
-};
-
-// Trust Indicators Component
-const TrustIndicators = () => {
-  return (
-    <div className="bg-gradient-to-r from-blue-50 to-orange-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div className="flex flex-col items-center">
-            <div className="text-2xl font-bold text-blue-600 mb-1">95%</div>
-            <div className="text-sm text-gray-600">Accuracy Rate</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-2xl font-bold text-blue-600 mb-1">50K+</div>
-            <div className="text-sm text-gray-600">Parts Identified</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-2xl font-bold text-blue-600 mb-1">24/7</div>
-            <div className="text-sm text-gray-600">AI Support</div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-2xl font-bold text-blue-600 mb-1">5★</div>
-            <div className="text-sm text-gray-600">User Rating</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Mock data for demonstration (preserved for fallback)
 const mockParts = [
@@ -226,10 +100,9 @@ function App() {
   const [locationError, setLocationError] = useState(null)
   const [apiStatus, setApiStatus] = useState({ ai: 'demo', location: 'demo', loaded: false })
   const [error, setError] = useState(null)
-  const [zipCode, setZipCode] = useState('')
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [zipCode, setZipCode] = useState('') // FIXED - Added ZIP code state
   
-  // Purchase functionality state
+  // NEW: Purchase functionality state
   const [productOffers, setProductOffers] = useState([])
   const [isLoadingOffers, setIsLoadingOffers] = useState(false)
   const [showPurchaseOptions, setShowPurchaseOptions] = useState(false)
@@ -990,9 +863,8 @@ function App() {
     setUserLocation(null);
     setLocationError(null);
     setError(null);
-    setZipCode('');
-    setShowMobileMenu(false);
-    // Reset purchase state
+    setZipCode(''); // FIXED - Reset ZIP code
+    // NEW: Reset purchase state
     setProductOffers([]);
     setShowPurchaseOptions(false);
   };
@@ -1012,204 +884,169 @@ function App() {
   };
 
   const renderHomeScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-orange-50">
-      <Header onMenuClick={() => setShowMobileMenu(!showMobileMenu)} showMenu={showMobileMenu} />
-      
-      {/* Hero Section */}
-      <section className="relative py-20 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-orange-500/5"></div>
-        <div className="relative max-w-4xl mx-auto text-center">
-          <div className="mb-8">
-            <PartFinderLogo size="xl" />
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Identify Any
-            <span className="bg-gradient-to-r from-blue-600 to-orange-500 bg-clip-text text-transparent"> Appliance Part</span>
-            <br />in Seconds
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Snap a photo and let our AI instantly identify your appliance part, find local stores, and get the best prices from trusted retailers.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">PartFinder Pro</h1>
+          <p className="text-xl text-gray-600">AI-Powered Appliance Part Identification</p>
+        </div>
 
-          {/* Error Display */}
-          {error && (
-            <Card className="mb-8 border-red-200 bg-red-50 max-w-md mx-auto">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-red-700">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>{error}</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        {/* Error Display */}
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+                <span>{error}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Main Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button 
-              onClick={handleCameraCapture}
-              size="lg"
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-              disabled={isProcessing}
-            >
-              <Camera className="h-6 w-6 mr-3" />
-              {isProcessing ? 'Processing...' : 'Take Photo'}
-            </Button>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              variant="outline"
-              size="lg"
-              className="border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white px-8 py-4 text-lg font-semibold transition-all duration-200 transform hover:scale-105"
-              disabled={isProcessing}
-            >
-              <Upload className="h-6 w-6 mr-3" />
-              {isProcessing ? 'Processing...' : 'Upload Image'}
-            </Button>
-          </div>
+        {/* Main Action Cards */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Camera Capture */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-6 w-6 text-blue-600" />
+                Take Photo
+              </CardTitle>
+              <CardDescription>
+                Capture an image of your appliance part for instant identification
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleCameraCapture}
+                className="w-full"
+                size="lg"
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Open Camera'}
+              </Button>
+            </CardContent>
+          </Card>
 
-          {/* Demo Button */}
-          <div className="mb-12">
+          {/* File Upload */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-6 w-6 text-green-600" />
+                Upload Image
+              </CardTitle>
+              <CardDescription>
+                Select an existing photo from your device
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button 
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                className="w-full"
+                size="lg"
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Choose File'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Demo Section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="h-6 w-6 text-purple-600" />
+              Try Demo
+            </CardTitle>
+            <CardDescription>
+              See how PartFinder Pro works with a sample dishwasher door seal
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <Button 
               onClick={handleDemo}
-              variant="ghost"
+              variant="outline"
+              className="w-full"
               size="lg"
-              className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 px-6 py-3 text-base font-medium transition-all duration-200"
               disabled={isProcessing}
             >
-              <Play className="h-5 w-5 mr-2" />
-              {isProcessing ? 'Loading Demo...' : 'Try Demo with Sample Image'}
+              {isProcessing ? 'Loading Demo...' : 'Start Demo'}
             </Button>
-          </div>
+          </CardContent>
+        </Card>
+
+        {/* Features */}
+        <div className="grid md:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6 text-center">
+              <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">AI-Powered</h3>
+              <p className="text-sm text-gray-600">Advanced computer vision identifies parts instantly</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6 text-center">
+              <Target className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Accurate Results</h3>
+              <p className="text-sm text-gray-600">Get precise part numbers and compatibility info</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6 text-center">
+              <MapPin className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Find Local Stores</h3>
+              <p className="text-sm text-gray-600">Locate nearby stores that carry your part</p>
+            </CardContent>
+          </Card>
+
+          {/* NEW: Purchase feature */}
+          <Card>
+            <CardContent className="p-6 text-center">
+              <ShoppingCart className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">Direct Purchase</h3>
+              <p className="text-sm text-gray-600">Buy parts directly from trusted retailers</p>
+            </CardContent>
+          </Card>
         </div>
-      </section>
 
-      {/* Trust Indicators */}
-      <TrustIndicators />
-
-      {/* Features Section */}
-      <section id="features" className="py-20 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose PartFinder Pro?</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Advanced AI technology meets practical solutions for all your appliance repair needs.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <Card className="text-center p-8 hover:shadow-lg transition-shadow duration-200 border-0 bg-gradient-to-br from-blue-50 to-blue-100">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Zap className="h-8 w-8 text-white" />
+        {/* Status Indicator */}
+        {apiStatus.loaded && (
+          <div className="mt-8 text-center">
+            <div className="inline-flex items-center gap-4 px-4 py-2 bg-white rounded-lg shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${apiStatus.ai === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-sm">AI: {apiStatus.ai === 'ready' ? 'Ready' : 'Demo Mode'}</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">AI-Powered Recognition</h3>
-              <p className="text-gray-600 leading-relaxed">Advanced computer vision identifies parts with 95% accuracy in seconds</p>
-            </Card>
-
-            <Card className="text-center p-8 hover:shadow-lg transition-shadow duration-200 border-0 bg-gradient-to-br from-orange-50 to-orange-100">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Target className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Precise Results</h3>
-              <p className="text-gray-600 leading-relaxed">Get exact part numbers, compatibility info, and specifications</p>
-            </Card>
-
-            <Card className="text-center p-8 hover:shadow-lg transition-shadow duration-200 border-0 bg-gradient-to-br from-green-50 to-green-100">
-              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <MapPin className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Local Store Finder</h3>
-              <p className="text-gray-600 leading-relaxed">Find nearby stores within 5 miles that carry your specific part</p>
-            </Card>
-
-            <Card className="text-center p-8 hover:shadow-lg transition-shadow duration-200 border-0 bg-gradient-to-br from-purple-50 to-purple-100">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <ShoppingCart className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Direct Purchase</h3>
-              <p className="text-gray-600 leading-relaxed">Compare prices and buy directly from trusted retailers</p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 px-4 bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
-            <p className="text-xl text-gray-600">Three simple steps to find and buy your appliance part</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
-                1
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Snap or Upload</h3>
-              <p className="text-gray-600">Take a photo of your broken appliance part or upload an existing image</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
-                2
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">AI Identifies</h3>
-              <p className="text-gray-600">Our advanced AI analyzes the image and identifies the exact part with specifications</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-2xl font-bold">
-                3
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Find & Buy</h3>
-              <p className="text-gray-600">Locate nearby stores or buy online from trusted retailers at the best prices</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Status Indicator */}
-      {apiStatus.loaded && (
-        <div className="py-8 bg-white border-t border-gray-100">
-          <div className="max-w-4xl mx-auto px-4">
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-6 px-6 py-3 bg-gray-50 rounded-full">
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${apiStatus.ai === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                  <span className="text-sm font-medium text-gray-700">AI: {apiStatus.ai === 'ready' ? 'Ready' : 'Demo Mode'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${apiStatus.location === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                  <span className="text-sm font-medium text-gray-700">Location: {apiStatus.location === 'ready' ? 'Ready' : 'Demo Mode'}</span>
-                </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${apiStatus.location === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-sm">Location: {apiStatus.location === 'ready' ? 'Ready' : 'Demo Mode'}</span>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 
   const renderResultsScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-orange-50">
-      <Header onMenuClick={() => setShowMobileMenu(!showMobileMenu)} showMenu={showMobileMenu} />
-      
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Part Identified</h1>
-            <p className="text-gray-600">AI analysis complete with high confidence match</p>
-          </div>
-          <Button onClick={resetToHome} variant="outline" className="hover:bg-blue-50 hover:border-blue-300">
-            <Search className="h-4 w-4 mr-2" />
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Part Identified</h1>
+          <Button onClick={resetToHome} variant="outline">
             New Search
           </Button>
         </div>
@@ -1226,36 +1063,32 @@ function App() {
           </Card>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-2 gap-6">
           {/* Image */}
-          <Card className="overflow-hidden shadow-lg">
-            <CardContent className="p-0">
-              <div className="relative">
-                <img 
-                  src={capturedImage || selectedPart?.imageUrl} 
-                  alt="Captured part" 
-                  className="w-full h-80 object-cover"
-                />
-                <div className="absolute top-4 right-4">
-                  <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm text-gray-900 font-semibold">
-                    <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
-                    {Math.round(selectedPart?.confidence || 0)}% Match
-                  </Badge>
-                </div>
-                <div className="absolute bottom-4 left-4">
-                  <Badge variant={selectedPart?.source === 'ai' ? 'default' : 'secondary'} className="bg-blue-600 text-white">
-                    {selectedPart?.source === 'ai' ? '🤖 AI Identified' : '🎭 Demo Mode'}
-                  </Badge>
-                </div>
+          <Card>
+            <CardContent className="p-6">
+              <img 
+                src={capturedImage || selectedPart?.imageUrl} 
+                alt="Captured part" 
+                className="w-full h-64 object-cover rounded-lg mb-4"
+              />
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  {selectedPart?.confidence}% Match
+                </Badge>
+                <Badge variant={selectedPart?.source === 'ai' ? 'default' : 'secondary'}>
+                  {selectedPart?.source === 'ai' ? 'AI Identified' : 'Demo Mode'}
+                </Badge>
               </div>
             </CardContent>
           </Card>
 
           {/* Part Details */}
-          <Card className="shadow-lg">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-2xl text-gray-900">{selectedPart?.name}</CardTitle>
-              <CardDescription className="text-lg">
+          <Card>
+            <CardHeader>
+              <CardTitle>{selectedPart?.name}</CardTitle>
+              <CardDescription>
                 {selectedPart?.partNumber && selectedPart.partNumber !== '' ? (
                   <>Part #{selectedPart.partNumber} • {selectedPart?.brand || 'Unknown Brand'}</>
                 ) : (
@@ -1264,71 +1097,72 @@ function App() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-6 leading-relaxed">{selectedPart?.description}</p>
+              <p className="text-gray-600 mb-4">{selectedPart?.description}</p>
               
-              <div className="space-y-3 mb-8">
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="font-medium text-gray-700">Category:</span>
-                  <span className="text-gray-900">{selectedPart?.category}</span>
+              <div className="space-y-2 mb-6">
+                <div className="flex justify-between">
+                  <span className="font-medium">Category:</span>
+                  <span>{selectedPart?.category}</span>
                 </div>
                 {selectedPart?.brand && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="font-medium text-gray-700">Brand:</span>
-                    <span className="text-gray-900">{selectedPart.brand}</span>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Brand:</span>
+                    <span>{selectedPart.brand}</span>
                   </div>
                 )}
                 {selectedPart?.partNumber && selectedPart.partNumber !== '' && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="font-medium text-gray-700">Part Number:</span>
-                    <span className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded">{selectedPart.partNumber}</span>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Part Number:</span>
+                    <span className="font-mono">{selectedPart.partNumber}</span>
                   </div>
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-4">
+              {/* NEW: Purchase button */}
+              <div className="space-y-3">
                 <Button 
                   onClick={() => setShowPurchaseOptions(!showPurchaseOptions)}
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                  className="w-full bg-green-600 hover:bg-green-700"
                   size="lg"
                   disabled={isLoadingOffers}
                 >
                   {isLoadingOffers ? (
-                    <div className="flex items-center gap-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       Finding Best Prices...
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <ShoppingCart className="h-6 w-6" />
-                      Buy This Part Online
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-5 w-5" />
+                      Buy This Part
                     </div>
                   )}
                 </Button>
 
                 <Button 
                   onClick={handleFindStores}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                  className="w-full"
                   size="lg"
                   disabled={isLoadingStores}
+                  variant="outline"
                 >
                   {isLoadingStores ? (
-                    <div className="flex items-center gap-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
                       Finding Stores...
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-6 w-6" />
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
                       Find Local Stores
                     </div>
                   )}
                 </Button>
               </div>
 
-              {/* ZIP code search option */}
+              {/* FIXED - Add ZIP code search option */}
               {locationError && (
-                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-yellow-800 text-sm mb-3">{locationError}</p>
                   <div className="flex gap-2">
                     <Input
@@ -1343,7 +1177,6 @@ function App() {
                       onClick={handleZipCodeSearch}
                       disabled={isLoadingStores || !zipCode.trim()}
                       size="sm"
-                      className="bg-blue-600 hover:bg-blue-700"
                     >
                       Search
                     </Button>
@@ -1354,80 +1187,75 @@ function App() {
           </Card>
         </div>
 
-        {/* Purchase Options */}
+        {/* FIXED: Purchase Options with enhanced debugging and dynamic pricing */}
         {showPurchaseOptions && (
-          <Card className="mt-8 shadow-lg">
+          <Card className="mt-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-xl">
-                <Package className="h-6 w-6 text-green-600" />
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
                 Purchase Options
               </CardTitle>
-              <CardDescription className="text-base">
-                Compare prices from multiple trusted retailers
+              <CardDescription>
+                Compare prices from multiple retailers
               </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoadingOffers && (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 text-lg">Finding best prices across retailers...</p>
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Finding best prices...</p>
                 </div>
               )}
 
               {!isLoadingOffers && productOffers.length > 0 && (
                 <div className="grid gap-4">
                   {productOffers.map((offer, index) => (
-                    <div key={offer.id || index} className="border rounded-xl p-6 hover:shadow-md transition-shadow bg-gradient-to-r from-white to-gray-50">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                            {offer.store.charAt(0)}
-                          </div>
-                          <div>
-                            <span className="font-bold text-xl text-gray-900">{offer.store}</span>
-                            {offer.isFallback && (
-                              <Badge variant="outline" className="ml-2 text-xs">Search Results</Badge>
-                            )}
-                          </div>
+                    <div key={offer.id || index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-lg">{offer.store}</span>
+                          {offer.isFallback && (
+                            <Badge variant="outline" className="text-xs">Search</Badge>
+                          )}
+                          {/* FIXED: Show cleaned search query for debugging */}
+                          {offer.searchQuery && (
+                            <Badge variant="outline" className="text-xs bg-blue-50">
+                              Query: {offer.searchQuery.substring(0, 30)}...
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-right">
                           {offer.price > 0 ? (
                             <div>
-                              <span className="text-2xl font-bold text-green-600">
+                              <span className="text-xl font-bold text-green-600">
                                 ${offer.price.toFixed(2)}
                               </span>
                               {offer.priceRange && (
-                                <div className="text-sm text-gray-500">{offer.priceRange}</div>
+                                <div className="text-xs text-gray-500">{offer.priceRange}</div>
                               )}
                             </div>
                           ) : (
-                            <span className="text-gray-500 text-lg">Price varies</span>
+                            <span className="text-gray-500">Price varies</span>
                           )}
                         </div>
                       </div>
                       
-                      <p className="text-gray-700 mb-4 font-medium">{offer.title}</p>
+                      <p className="text-gray-600 text-sm mb-2">{offer.title}</p>
                       
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                            {offer.availability}
-                          </span>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span>{offer.availability}</span>
                           {offer.confidence && (
-                            <span className="flex items-center gap-1">
-                              <Target className="h-4 w-4 text-blue-500" />
-                              {offer.confidence}% match
-                            </span>
+                            <span>{offer.confidence}% match</span>
                           )}
                         </div>
                         
                         <Button 
                           onClick={() => handleBuyProduct(offer)}
-                          className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-6 py-2 font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-700"
                         >
                           {offer.isFallback ? 'Search on ' + offer.store : 'Buy Now'}
-                          <ExternalLink className="h-4 w-4 ml-2" />
                         </Button>
                       </div>
                     </div>
@@ -1436,30 +1264,28 @@ function App() {
               )}
 
               {!isLoadingOffers && productOffers.length === 0 && (
-                <div className="text-center py-12">
-                  <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No purchase options found</h3>
-                  <p className="text-gray-600 mb-6">Try searching manually on these popular retailers:</p>
-                  <div className="flex gap-3 justify-center flex-wrap">
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">No purchase options found. Try searching manually:</p>
+                  <div className="flex gap-2 justify-center flex-wrap">
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={() => {
                         const searchQuery = createSearchQuery(selectedPart);
                         const encodedQuery = encodeURIComponent(searchQuery);
                         window.open(`https://www.amazon.com/s?k=${encodedQuery}`, '_blank');
                       }}
-                      className="hover:bg-orange-50 hover:border-orange-300"
                     >
                       Search Amazon
                     </Button>
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={() => {
                         const searchQuery = createSearchQuery(selectedPart);
                         const encodedQuery = encodeURIComponent(searchQuery);
                         window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`, '_blank');
                       }}
-                      className="hover:bg-blue-50 hover:border-blue-300"
                     >
                       Search eBay
                     </Button>
@@ -1471,31 +1297,31 @@ function App() {
         )}
 
         {/* Specifications and Compatibility */}
-        <Card className="mt-8 shadow-lg">
-          <CardContent className="p-8">
+        <Card className="mt-6">
+          <CardContent className="p-6">
             <Tabs defaultValue="specs" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="specs" className="text-base">Specifications</TabsTrigger>
-                <TabsTrigger value="compatibility" className="text-base">Compatibility</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="specs">Specifications</TabsTrigger>
+                <TabsTrigger value="compatibility">Compatibility</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="specs" className="mt-6">
-                <div className="grid md:grid-cols-2 gap-6">
+              <TabsContent value="specs" className="mt-4">
+                <div className="grid md:grid-cols-2 gap-4">
                   {selectedPart?.specifications && Object.entries(selectedPart.specifications).map(([key, value]) => (
-                    <div key={key} className="flex justify-between py-3 border-b border-gray-100">
-                      <span className="font-medium text-gray-700">{key}:</span>
-                      <span className="text-gray-900 font-medium">{value}</span>
+                    <div key={key} className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="font-medium">{key}:</span>
+                      <span>{value}</span>
                     </div>
                   ))}
                 </div>
               </TabsContent>
               
-              <TabsContent value="compatibility" className="mt-6">
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-lg text-gray-900 mb-4">Compatible Models:</h4>
-                  <div className="grid md:grid-cols-2 gap-3">
+              <TabsContent value="compatibility" className="mt-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium mb-3">Compatible Models:</h4>
+                  <div className="grid md:grid-cols-2 gap-2">
                     {selectedPart?.compatibleModels?.map((model, index) => (
-                      <div key={index} className="px-4 py-3 bg-gradient-to-r from-blue-50 to-orange-50 rounded-lg font-mono text-sm font-medium text-gray-900 border border-gray-200">
+                      <div key={index} className="px-3 py-2 bg-gray-50 rounded font-mono text-sm">
                         {model}
                       </div>
                     ))}
@@ -1510,25 +1336,22 @@ function App() {
   );
 
   const renderStoresScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-orange-50">
-      <Header onMenuClick={() => setShowMobileMenu(!showMobileMenu)} showMenu={showMobileMenu} />
-      
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Local Stores</h1>
-            <p className="text-gray-600 text-lg">
-              Stores within 5 miles carrying: <span className="font-semibold text-blue-600">{selectedPart?.name}</span>
+            <h1 className="text-3xl font-bold text-gray-900">Local Stores</h1>
+            <p className="text-gray-600">
+              {/* FIXED - Show actual distance limit */}
+              Stores within 5 miles carrying: {selectedPart?.name}
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button onClick={() => setCurrentScreen('results')} variant="outline" className="hover:bg-blue-50 hover:border-blue-300">
-              <Target className="h-4 w-4 mr-2" />
+          <div className="flex gap-2">
+            <Button onClick={() => setCurrentScreen('results')} variant="outline">
               Back to Results
             </Button>
-            <Button onClick={resetToHome} variant="outline" className="hover:bg-orange-50 hover:border-orange-300">
-              <Search className="h-4 w-4 mr-2" />
+            <Button onClick={resetToHome} variant="outline">
               New Search
             </Button>
           </div>
@@ -1548,53 +1371,53 @@ function App() {
 
         {/* Stores List */}
         {nearbyStores.length > 0 ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {nearbyStores.map((store) => (
-              <Card key={store.id} className="hover:shadow-xl transition-shadow duration-200 overflow-hidden">
-                <CardContent className="p-8">
-                  <div className="grid lg:grid-cols-4 gap-6">
+              <Card key={store.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-6">
+                  <div className="grid lg:grid-cols-4 gap-4">
                     {/* Store Info */}
                     <div className="lg:col-span-2">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-2xl font-bold text-gray-900 mb-1">{store.name}</h3>
-                          <p className="text-gray-600 text-lg">{store.address}</p>
-                        </div>
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-xl font-semibold">{store.name}</h3>
                         <Badge 
                           variant={store.availability?.status === 'in-stock' ? 'default' : 'secondary'}
-                          className={`text-sm px-3 py-1 ${
-                            store.availability?.color === 'green' ? 'bg-green-100 text-green-800 border-green-200' :
-                            store.availability?.color === 'orange' ? 'bg-orange-100 text-orange-800 border-orange-200' :
-                            'bg-gray-100 text-gray-800 border-gray-200'
+                          className={`${
+                            store.availability?.color === 'green' ? 'bg-green-100 text-green-800' :
+                            store.availability?.color === 'orange' ? 'bg-orange-100 text-orange-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}
                         >
                           {store.availability?.label || 'Call to Confirm'}
                         </Badge>
                       </div>
                       
-                      <div className="flex items-center gap-6 text-gray-600 mb-4">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-5 w-5 text-blue-500" />
-                          <span className="font-semibold text-blue-600">{store.distanceFormatted}</span>
+                      <p className="text-gray-600 mb-2">{store.address}</p>
+                      
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {store.distanceFormatted}
                         </div>
                         {store.rating && (
-                          <div className="flex items-center gap-2">
-                            <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                            <span className="font-medium">{store.rating}</span>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            {store.rating} ({store.userRatingCount || 0})
                           </div>
                         )}
+                        {/* FIXED - Show likelihood score for debugging */}
                         {store.likelihood && (
-                          <div className="flex items-center gap-2">
-                            <Target className="h-5 w-5 text-green-500" />
-                            <span className="font-medium text-green-600">{store.likelihood}% likely</span>
+                          <div className="flex items-center gap-1">
+                            <Target className="h-4 w-4" />
+                            {store.likelihood}% likely
                           </div>
                         )}
                       </div>
 
                       {store.services && (
-                        <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="flex flex-wrap gap-1 mb-3">
                           {store.services.slice(0, 3).map((service, index) => (
-                            <Badge key={index} variant="outline" className="text-sm bg-blue-50 text-blue-700 border-blue-200">
+                            <Badge key={index} variant="outline" className="text-xs">
                               {service}
                             </Badge>
                           ))}
@@ -1603,24 +1426,24 @@ function App() {
                     </div>
 
                     {/* Price & Hours */}
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <DollarSign className="h-5 w-5 text-green-600" />
-                          <span className="font-semibold text-gray-900">Estimated Price</span>
+                    <div>
+                      <div className="mb-3">
+                        <div className="flex items-center gap-1 mb-1">
+                          <DollarSign className="h-4 w-4 text-green-600" />
+                          <span className="font-medium">Estimated Price</span>
                         </div>
-                        <p className="text-2xl font-bold text-green-600">
+                        <p className="text-lg font-semibold text-green-600">
                           {store.estimatedPrice?.formatted || store.estimatedPrice?.range || 'Call for Price'}
                         </p>
                       </div>
 
                       {store.hours && (
                         <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Clock className="h-5 w-5 text-blue-600" />
-                            <span className="font-semibold text-gray-900">Hours</span>
+                          <div className="flex items-center gap-1 mb-1">
+                            <Clock className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium">Hours</span>
                           </div>
-                          <p className="text-gray-600">
+                          <p className="text-sm text-gray-600">
                             {store.hours.monday || 'Call for hours'}
                           </p>
                         </div>
@@ -1628,20 +1451,22 @@ function App() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
                       <Button 
                         onClick={() => getDirections(store)}
-                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200"
+                        className="w-full"
+                        size="sm"
                       >
                         <Navigation className="h-4 w-4 mr-2" />
-                        Get Directions
+                        Directions
                       </Button>
                       
                       {store.phone && (
                         <Button 
                           onClick={() => callStore(store)}
                           variant="outline"
-                          className="w-full hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                          className="w-full"
+                          size="sm"
                         >
                           <Phone className="h-4 w-4 mr-2" />
                           Call Store
@@ -1652,7 +1477,8 @@ function App() {
                         <Button 
                           onClick={() => visitWebsite(store)}
                           variant="outline"
-                          className="w-full hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700"
+                          className="w-full"
+                          size="sm"
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Visit Website
@@ -1663,8 +1489,8 @@ function App() {
 
                   {/* AI Reason (for debugging) */}
                   {store.aiReason && (
-                    <div className="mt-6 pt-6 border-t border-gray-100">
-                      <p className="text-sm text-gray-500">
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <p className="text-xs text-gray-500">
                         <strong>AI Analysis:</strong> {store.aiReason}
                       </p>
                     </div>
@@ -1674,18 +1500,18 @@ function App() {
             ))}
           </div>
         ) : (
-          <Card className="text-center py-16">
-            <CardContent>
-              <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No Stores Found</h3>
-              <p className="text-gray-600 text-lg mb-8">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Stores Found</h3>
+              <p className="text-gray-600 mb-4">
                 We couldn't find any stores within 5 miles that carry this part.
               </p>
-              <div className="flex gap-4 justify-center">
-                <Button onClick={() => setCurrentScreen('results')} variant="outline" className="hover:bg-blue-50 hover:border-blue-300">
+              <div className="flex gap-2 justify-center">
+                <Button onClick={() => setCurrentScreen('results')} variant="outline">
                   Try Different Location
                 </Button>
-                <Button onClick={resetToHome} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">
+                <Button onClick={resetToHome}>
                   New Search
                 </Button>
               </div>
@@ -1700,4 +1526,3 @@ function App() {
 }
 
 export default App
-
