@@ -7,10 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import { Camera, Search, MapPin, Star, Navigation, CheckCircle, Upload, Zap, Target, DollarSign, Play, AlertCircle, Clock, Phone, ExternalLink, ShoppingCart, Package } from 'lucide-react'
 import sampleSeal from './assets/sample-dishwasher-seal.jpg'
 import sampleFilter from './assets/sample-water-filter.jpg'
+// FIXED: Proper imports for logo assets
+import logoHorizontal from './assets/partfinder-pro-logo-horizontal.png'
+import logoMain from './assets/partfinder-pro-logo-main.png'
+import logoWhite from './assets/partfinder-pro-logo-white.png'
+import logoIcon from './assets/partfinder-pro-icon-only.png'
 import { useCapacitor } from './hooks/useCapacitor';
 import './App.css'
 
-// Logo Component
+// FIXED: Logo Component with proper asset imports
 const PartFinderLogo = ({ size = 'medium', variant = 'default', className = '' }) => {
   const sizeClasses = {
     small: 'h-8',
@@ -19,7 +24,8 @@ const PartFinderLogo = ({ size = 'medium', variant = 'default', className = '' }
     xlarge: 'h-24'
   };
 
-  const logoSrc = variant === 'white' ? '/partfinder-pro-logo-white.png' : '/partfinder-pro-logo-horizontal.png';
+  // FIXED: Use imported assets instead of absolute paths
+  const logoSrc = variant === 'white' ? logoWhite : logoHorizontal;
 
   return (
     <img 
