@@ -432,9 +432,9 @@ function App() {
   };
 
   /**
-   * Handle camera capture
+   * Handle camera capture or file upload (COMBINED FUNCTIONALITY)
    */
-  const handleCameraCapture = async () => {
+  const handleImageCapture = async () => {
     setError(null);
     
     try {
@@ -450,7 +450,7 @@ function App() {
         fileInputRef.current?.click();
       }
     } catch (error) {
-      console.error('Camera capture error:', error);
+      console.error('Image capture error:', error);
       setError('Camera not available. Please use file upload instead.');
     }
   };
@@ -931,7 +931,7 @@ function App() {
   };
 
   const renderHomeScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header with Logo */}
         <div className="text-center mb-8">
@@ -939,12 +939,12 @@ function App() {
             <PartFinderLogo size="xlarge" />
             <TextLogo size="xlarge" />
           </div>
-          <p className="text-xl text-gray-600">AI-Powered Appliance Part Identification</p>
+          <p className="text-xl text-gray-700">AI-Powered Appliance Part Identification</p>
         </div>
 
         {/* Error Display */}
         {error && (
-          <Card className="mb-6 border-red-200 bg-red-50">
+          <Card className="mb-6 border-red-200 bg-red-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-red-700">
                 <AlertCircle className="h-5 w-5" />
@@ -954,43 +954,38 @@ function App() {
           </Card>
         )}
 
-        {/* Main Action Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Camera Capture */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="h-6 w-6 text-blue-600" />
-                Take Photo
-              </CardTitle>
-              <CardDescription>
-                Capture an image of your appliance part for instant identification
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+        {/* COMBINED: Main Image Capture Card */}
+        <Card className="mb-8 shadow-xl bg-white border-0">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+              <Camera className="h-8 w-8 text-blue-600" />
+              Identify Your Part
+            </CardTitle>
+            <CardDescription className="text-lg">
+              Take a photo or upload an image of your appliance part
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-8">
+            <div className="grid md:grid-cols-2 gap-4">
               <Button 
-                onClick={handleCameraCapture}
-                className="w-full"
+                onClick={handleImageCapture}
+                className="h-16 text-lg bg-blue-600 hover:bg-blue-700 shadow-lg"
                 size="lg"
                 disabled={isProcessing}
               >
-                {isProcessing ? 'Processing...' : 'Open Camera'}
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-6 w-6 mr-3" />
+                    Take Photo
+                  </>
+                )}
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* File Upload */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="h-6 w-6 text-green-600" />
-                Upload Image
-              </CardTitle>
-              <CardDescription>
-                Select an existing photo from your device
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+              
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1001,20 +996,30 @@ function App() {
               <Button 
                 onClick={() => fileInputRef.current?.click()}
                 variant="outline"
-                className="w-full"
+                className="h-16 text-lg border-2 border-blue-600 text-blue-600 hover:bg-blue-50 shadow-lg"
                 size="lg"
                 disabled={isProcessing}
               >
-                {isProcessing ? 'Processing...' : 'Choose File'}
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 mr-3" />
+                    Upload Image
+                  </>
+                )}
               </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Demo Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="mb-8 shadow-lg bg-white border-0">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2">
               <Play className="h-6 w-6 text-purple-600" />
               Try Demo
             </CardTitle>
@@ -1026,62 +1031,59 @@ function App() {
             <Button 
               onClick={handleDemo}
               variant="outline"
-              className="w-full"
+              className="w-full h-12 border-2 border-purple-600 text-purple-600 hover:bg-purple-50 shadow-lg"
               size="lg"
               disabled={isProcessing}
             >
-              {isProcessing ? 'Loading Demo...' : 'Start Demo'}
+              {isProcessing ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600 mr-2"></div>
+                  Loading Demo...
+                </>
+              ) : (
+                <>
+                  <Play className="h-5 w-5 mr-2" />
+                  Start Demo
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Features */}
-        <div className="grid md:grid-cols-4 gap-6">
-          <Card>
+        {/* CLEANED UP: Key Features */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          <Card className="shadow-lg bg-white border-0">
             <CardContent className="p-6 text-center">
-              <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-              <h3 className="font-semibold mb-2">AI-Powered</h3>
-              <p className="text-sm text-gray-600">Advanced computer vision identifies parts instantly</p>
+              <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Zap className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">AI-Powered Identification</h3>
+              <p className="text-gray-600">Advanced computer vision identifies parts instantly with high accuracy</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-lg bg-white border-0">
             <CardContent className="p-6 text-center">
-              <Target className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h3 className="font-semibold mb-2">Accurate Results</h3>
-              <p className="text-sm text-gray-600">Get precise part numbers and compatibility info</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6 text-center">
-              <MapPin className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="font-semibold mb-2">Find Local Stores</h3>
-              <p className="text-sm text-gray-600">Locate nearby stores that carry your part</p>
-            </CardContent>
-          </Card>
-
-          {/* NEW: Purchase feature */}
-          <Card>
-            <CardContent className="p-6 text-center">
-              <ShoppingCart className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h3 className="font-semibold mb-2">Direct Purchase</h3>
-              <p className="text-sm text-gray-600">Buy parts directly from trusted retailers</p>
+              <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <ShoppingCart className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Direct Purchase & Local Stores</h3>
+              <p className="text-gray-600">Buy parts online or find nearby stores that carry your specific part</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Status Indicator */}
         {apiStatus.loaded && (
-          <div className="mt-8 text-center">
-            <div className="inline-flex items-center gap-4 px-4 py-2 bg-white rounded-lg shadow-sm">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-4 px-6 py-3 bg-white rounded-lg shadow-lg border-0">
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${apiStatus.ai === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                <span className="text-sm">AI: {apiStatus.ai === 'ready' ? 'Ready' : 'Demo Mode'}</span>
+                <div className={`w-3 h-3 rounded-full ${apiStatus.ai === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-sm font-medium">AI: {apiStatus.ai === 'ready' ? 'Ready' : 'Demo Mode'}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${apiStatus.location === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                <span className="text-sm">Location: {apiStatus.location === 'ready' ? 'Ready' : 'Demo Mode'}</span>
+                <div className={`w-3 h-3 rounded-full ${apiStatus.location === 'ready' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-sm font-medium">Location: {apiStatus.location === 'ready' ? 'Ready' : 'Demo Mode'}</span>
               </div>
             </div>
           </div>
@@ -1091,7 +1093,7 @@ function App() {
   );
 
   const renderResultsScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header with Logo */}
         <div className="flex items-center justify-between mb-6">
@@ -1100,14 +1102,14 @@ function App() {
             <TextLogo size="medium" />
             <h1 className="text-3xl font-bold text-gray-900">Part Identified</h1>
           </div>
-          <Button onClick={resetToHome} variant="outline">
+          <Button onClick={resetToHome} variant="outline" className="shadow-lg">
             New Search
           </Button>
         </div>
 
         {/* Error Display */}
         {error && (
-          <Card className="mb-6 border-red-200 bg-red-50">
+          <Card className="mb-6 border-red-200 bg-red-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-red-700">
                 <AlertCircle className="h-5 w-5" />
@@ -1120,7 +1122,7 @@ function App() {
         {selectedPart && (
           <div className="grid lg:grid-cols-2 gap-6">
             {/* Part Image */}
-            <Card>
+            <Card className="shadow-lg bg-white border-0">
               <CardContent className="p-6">
                 <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
                   <img 
@@ -1143,7 +1145,7 @@ function App() {
 
             {/* Part Details */}
             <div className="space-y-6">
-              <Card>
+              <Card className="shadow-lg bg-white border-0">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
@@ -1174,7 +1176,7 @@ function App() {
               </Card>
 
               {/* NEW: Purchase Options */}
-              <Card>
+              <Card className="shadow-lg bg-white border-0">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ShoppingCart className="h-5 w-5" />
@@ -1277,7 +1279,7 @@ function App() {
               <div className="grid grid-cols-2 gap-4">
                 <Button 
                   onClick={handleFindStores}
-                  className="w-full"
+                  className="w-full shadow-lg"
                   disabled={isLoadingStores}
                 >
                   {isLoadingStores ? (
@@ -1296,7 +1298,7 @@ function App() {
                 <Button 
                   onClick={resetToHome}
                   variant="outline"
-                  className="w-full"
+                  className="w-full shadow-lg"
                 >
                   <Search className="h-4 w-4 mr-2" />
                   Search Another Part
@@ -1308,7 +1310,7 @@ function App() {
 
         {/* Part Details Tabs */}
         {selectedPart && (
-          <Card className="mt-6">
+          <Card className="mt-6 shadow-lg bg-white border-0">
             <Tabs defaultValue="specifications" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="specifications">Specifications</TabsTrigger>
@@ -1344,7 +1346,7 @@ function App() {
 
         {/* Location Error for Store Finding */}
         {locationError && (
-          <Card className="mt-6 border-orange-200 bg-orange-50">
+          <Card className="mt-6 border-orange-200 bg-orange-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
@@ -1377,7 +1379,7 @@ function App() {
   );
 
   const renderStoresScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header with Logo */}
         <div className="flex items-center justify-between mb-6">
@@ -1387,10 +1389,10 @@ function App() {
             <h1 className="text-3xl font-bold text-gray-900">Nearby Stores</h1>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => setCurrentScreen('results')} variant="outline">
+            <Button onClick={() => setCurrentScreen('results')} variant="outline" className="shadow-lg">
               Back to Results
             </Button>
-            <Button onClick={resetToHome} variant="outline">
+            <Button onClick={resetToHome} variant="outline" className="shadow-lg">
               New Search
             </Button>
           </div>
@@ -1398,7 +1400,7 @@ function App() {
 
         {/* Error Display */}
         {error && (
-          <Card className="mb-6 border-red-200 bg-red-50">
+          <Card className="mb-6 border-red-200 bg-red-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-red-700">
                 <AlertCircle className="h-5 w-5" />
@@ -1410,7 +1412,7 @@ function App() {
 
         {/* Part Summary */}
         {selectedPart && (
-          <Card className="mb-6">
+          <Card className="mb-6 shadow-lg bg-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
@@ -1436,7 +1438,7 @@ function App() {
         {nearbyStores.length > 0 ? (
           <div className="grid gap-4">
             {nearbyStores.map((store) => (
-              <Card key={store.id} className="hover:shadow-lg transition-shadow">
+              <Card key={store.id} className="hover:shadow-xl transition-shadow shadow-lg bg-white border-0">
                 <CardContent className="p-6">
                   <div className="grid lg:grid-cols-4 gap-4">
                     {/* Store Info */}
@@ -1500,7 +1502,7 @@ function App() {
                     <div className="space-y-2">
                       <Button 
                         onClick={() => getDirections(store)}
-                        className="w-full"
+                        className="w-full shadow-lg"
                         size="sm"
                       >
                         <Navigation className="h-4 w-4 mr-2" />
@@ -1511,7 +1513,7 @@ function App() {
                         <Button 
                           onClick={() => callStore(store)}
                           variant="outline"
-                          className="w-full"
+                          className="w-full shadow-lg"
                           size="sm"
                         >
                           <Phone className="h-4 w-4 mr-2" />
@@ -1523,7 +1525,7 @@ function App() {
                         <Button 
                           onClick={() => visitWebsite(store)}
                           variant="outline"
-                          className="w-full"
+                          className="w-full shadow-lg"
                           size="sm"
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
@@ -1537,7 +1539,7 @@ function App() {
             ))}
           </div>
         ) : (
-          <Card>
+          <Card className="shadow-lg bg-white border-0">
             <CardContent className="p-8 text-center">
               <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No stores found</h3>
@@ -1545,10 +1547,10 @@ function App() {
                 We couldn't find any stores within 5 miles that carry this part.
               </p>
               <div className="flex justify-center gap-2">
-                <Button onClick={() => setCurrentScreen('results')} variant="outline">
+                <Button onClick={() => setCurrentScreen('results')} variant="outline" className="shadow-lg">
                   Back to Results
                 </Button>
-                <Button onClick={resetToHome}>
+                <Button onClick={resetToHome} className="shadow-lg">
                   Search Another Part
                 </Button>
               </div>
@@ -1558,7 +1560,7 @@ function App() {
 
         {/* ZIP Code Search Option */}
         {locationError && (
-          <Card className="mt-6 border-orange-200 bg-orange-50">
+          <Card className="mt-6 border-orange-200 bg-orange-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
