@@ -10,6 +10,47 @@ import sampleFilter from './assets/sample-water-filter.jpg'
 import { useCapacitor } from './hooks/useCapacitor';
 import './App.css'
 
+// Logo Component
+const PartFinderLogo = ({ size = 'medium', variant = 'default', className = '' }) => {
+  const sizeClasses = {
+    small: 'h-8',
+    medium: 'h-12',
+    large: 'h-16',
+    xlarge: 'h-24'
+  };
+
+  const logoSrc = variant === 'white' ? '/partfinder-pro-logo-white.png' : '/partfinder-pro-logo-horizontal.png';
+
+  return (
+    <img 
+      src={logoSrc}
+      alt="PartFinder Pro"
+      className={`${sizeClasses[size]} w-auto ${className}`}
+      onError={(e) => {
+        // Fallback to text if image fails to load
+        e.target.style.display = 'none';
+        e.target.nextSibling.style.display = 'inline';
+      }}
+    />
+  );
+};
+
+// Fallback text logo
+const TextLogo = ({ size = 'medium', className = '' }) => {
+  const sizeClasses = {
+    small: 'text-lg',
+    medium: 'text-2xl',
+    large: 'text-3xl',
+    xlarge: 'text-4xl'
+  };
+
+  return (
+    <span className={`font-bold text-blue-600 ${sizeClasses[size]} ${className}`} style={{ display: 'none' }}>
+      PartFinder Pro
+    </span>
+  );
+};
+
 // Mock data for demonstration (preserved for fallback)
 const mockParts = [
   {
@@ -886,9 +927,12 @@ function App() {
   const renderHomeScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {/* Header with Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">PartFinder Pro</h1>
+          <div className="flex justify-center mb-4">
+            <PartFinderLogo size="xlarge" />
+            <TextLogo size="xlarge" />
+          </div>
           <p className="text-xl text-gray-600">AI-Powered Appliance Part Identification</p>
         </div>
 
@@ -1043,9 +1087,13 @@ function App() {
   const renderResultsScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {/* Header with Logo */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Part Identified</h1>
+          <div className="flex items-center gap-4">
+            <PartFinderLogo size="medium" />
+            <TextLogo size="medium" />
+            <h1 className="text-3xl font-bold text-gray-900">Part Identified</h1>
+          </div>
           <Button onClick={resetToHome} variant="outline">
             New Search
           </Button>
@@ -1063,274 +1111,261 @@ function App() {
           </Card>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Image */}
-          <Card>
-            <CardContent className="p-6">
-              <img 
-                src={capturedImage || selectedPart?.imageUrl} 
-                alt="Captured part" 
-                className="w-full h-64 object-cover rounded-lg mb-4"
-              />
-              <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4" />
-                  {selectedPart?.confidence}% Match
-                </Badge>
-                <Badge variant={selectedPart?.source === 'ai' ? 'default' : 'secondary'}>
-                  {selectedPart?.source === 'ai' ? 'AI Identified' : 'Demo Mode'}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Part Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{selectedPart?.name}</CardTitle>
-              <CardDescription>
-                {selectedPart?.partNumber && selectedPart.partNumber !== '' ? (
-                  <>Part #{selectedPart.partNumber} • {selectedPart?.brand || 'Unknown Brand'}</>
-                ) : (
-                  <>{selectedPart?.brand || 'Unknown Brand'}</>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">{selectedPart?.description}</p>
-              
-              <div className="space-y-2 mb-6">
-                <div className="flex justify-between">
-                  <span className="font-medium">Category:</span>
-                  <span>{selectedPart?.category}</span>
+        {selectedPart && (
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Part Image */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
+                  <img 
+                    src={capturedImage || selectedPart.imageUrl} 
+                    alt="Captured part"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                {selectedPart?.brand && (
-                  <div className="flex justify-between">
-                    <span className="font-medium">Brand:</span>
-                    <span>{selectedPart.brand}</span>
-                  </div>
-                )}
-                {selectedPart?.partNumber && selectedPart.partNumber !== '' && (
-                  <div className="flex justify-between">
-                    <span className="font-medium">Part Number:</span>
-                    <span className="font-mono">{selectedPart.partNumber}</span>
-                  </div>
-                )}
-              </div>
+                <div className="flex items-center justify-between">
+                  <Badge variant={selectedPart.source === 'ai' ? 'default' : 'secondary'}>
+                    {selectedPart.source === 'ai' ? 'AI Identified' : 'Demo Mode'}
+                  </Badge>
+                  {/* FIXED: Display confidence as percentage (95% instead of 0.95%) */}
+                  <Badge variant="outline">
+                    {Math.round(selectedPart.confidence)}% Match
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* NEW: Purchase button */}
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => setShowPurchaseOptions(!showPurchaseOptions)}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  size="lg"
-                  disabled={isLoadingOffers}
-                >
+            {/* Part Details */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    {selectedPart.name}
+                  </CardTitle>
+                  <CardDescription>
+                    Part #{selectedPart.partNumber} • {selectedPart.brand}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 mb-4">{selectedPart.description}</p>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Category:</span>
+                      <p className="text-gray-600">{selectedPart.category}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium">Brand:</span>
+                      <p className="text-gray-600">{selectedPart.brand}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Part Number:</span>
+                      <p className="text-gray-600 font-mono">{selectedPart.partNumber}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* NEW: Purchase Options */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    Buy This Part
+                  </CardTitle>
+                  <CardDescription>
+                    Compare prices from trusted retailers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                   {isLoadingOffers ? (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Finding Best Prices...
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-2">Finding best prices...</span>
+                    </div>
+                  ) : productOffers.length > 0 ? (
+                    <div className="space-y-3">
+                      {productOffers.slice(0, 3).map((offer) => (
+                        <div key={offer.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{offer.store}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {offer.confidence}% match
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600">{offer.availability}</p>
+                            {offer.searchQuery && (
+                              <p className="text-xs text-gray-400">Search: {offer.searchQuery}</p>
+                            )}
+                          </div>
+                          <div className="text-right mr-4">
+                            <p className="font-bold text-lg">${offer.price.toFixed(2)}</p>
+                            {offer.priceRange && (
+                              <p className="text-xs text-gray-500">{offer.priceRange}</p>
+                            )}
+                          </div>
+                          <Button 
+                            onClick={() => handleBuyProduct(offer)}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Buy Now
+                          </Button>
+                        </div>
+                      ))}
+                      
+                      {productOffers.length > 3 && (
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={() => setShowPurchaseOptions(!showPurchaseOptions)}
+                        >
+                          {showPurchaseOptions ? 'Show Less' : `Show ${productOffers.length - 3} More Options`}
+                        </Button>
+                      )}
+                      
+                      {showPurchaseOptions && productOffers.slice(3).map((offer) => (
+                        <div key={offer.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{offer.store}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {offer.confidence}% match
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600">{offer.availability}</p>
+                            {offer.searchQuery && (
+                              <p className="text-xs text-gray-400">Search: {offer.searchQuery}</p>
+                            )}
+                          </div>
+                          <div className="text-right mr-4">
+                            <p className="font-bold text-lg">${offer.price.toFixed(2)}</p>
+                            {offer.priceRange && (
+                              <p className="text-xs text-gray-500">{offer.priceRange}</p>
+                            )}
+                          </div>
+                          <Button 
+                            onClick={() => handleBuyProduct(offer)}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Buy Now
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="h-5 w-5" />
-                      Buy This Part
+                    <div className="text-center py-4">
+                      <p className="text-gray-600 mb-4">No purchase options available at the moment.</p>
+                      <Button variant="outline" onClick={() => loadProductOffers(selectedPart)}>
+                        Retry Search
+                      </Button>
                     </div>
                   )}
-                </Button>
+                </CardContent>
+              </Card>
 
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-4">
                 <Button 
                   onClick={handleFindStores}
                   className="w-full"
-                  size="lg"
                   disabled={isLoadingStores}
-                  variant="outline"
                 >
                   {isLoadingStores ? (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Finding Stores...
-                    </div>
+                    </>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
+                    <>
+                      <MapPin className="h-4 w-4 mr-2" />
                       Find Local Stores
-                    </div>
+                    </>
                   )}
                 </Button>
+                
+                <Button 
+                  onClick={resetToHome}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Search Another Part
+                </Button>
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* FIXED - Add ZIP code search option */}
-              {locationError && (
-                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-yellow-800 text-sm mb-3">{locationError}</p>
-                  <div className="flex gap-2">
+        {/* Part Details Tabs */}
+        {selectedPart && (
+          <Card className="mt-6">
+            <Tabs defaultValue="specifications" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="specifications">Specifications</TabsTrigger>
+                <TabsTrigger value="compatibility">Compatibility</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="specifications" className="p-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {Object.entries(selectedPart.specifications || {}).map(([key, value]) => (
+                    <div key={key} className="flex justify-between py-2 border-b border-gray-100">
+                      <span className="font-medium">{key}:</span>
+                      <span className="text-gray-600">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="compatibility" className="p-6">
+                <div>
+                  <h4 className="font-medium mb-3">Compatible Models:</h4>
+                  <div className="grid md:grid-cols-2 gap-2">
+                    {(selectedPart.compatibleModels || []).map((model) => (
+                      <Badge key={model} variant="outline" className="justify-start">
+                        {model}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </Card>
+        )}
+
+        {/* Location Error for Store Finding */}
+        {locationError && (
+          <Card className="mt-6 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-orange-800 mb-3">{locationError}</p>
+                  <div className="flex items-center gap-2">
                     <Input
                       type="text"
                       placeholder="Enter ZIP code (e.g., 90210)"
                       value={zipCode}
                       onChange={(e) => setZipCode(e.target.value)}
+                      className="max-w-xs"
                       maxLength={5}
-                      className="flex-1"
                     />
                     <Button 
                       onClick={handleZipCodeSearch}
                       disabled={isLoadingStores || !zipCode.trim()}
                       size="sm"
                     >
-                      Search
+                      {isLoadingStores ? 'Searching...' : 'Search'}
                     </Button>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* FIXED: Purchase Options with enhanced debugging and dynamic pricing */}
-        {showPurchaseOptions && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Purchase Options
-              </CardTitle>
-              <CardDescription>
-                Compare prices from multiple retailers
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingOffers && (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Finding best prices...</p>
-                </div>
-              )}
-
-              {!isLoadingOffers && productOffers.length > 0 && (
-                <div className="grid gap-4">
-                  {productOffers.map((offer, index) => (
-                    <div key={offer.id || index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg">{offer.store}</span>
-                          {offer.isFallback && (
-                            <Badge variant="outline" className="text-xs">Search</Badge>
-                          )}
-                          {/* FIXED: Show cleaned search query for debugging */}
-                          {offer.searchQuery && (
-                            <Badge variant="outline" className="text-xs bg-blue-50">
-                              Query: {offer.searchQuery.substring(0, 30)}...
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          {offer.price > 0 ? (
-                            <div>
-                              <span className="text-xl font-bold text-green-600">
-                                ${offer.price.toFixed(2)}
-                              </span>
-                              {offer.priceRange && (
-                                <div className="text-xs text-gray-500">{offer.priceRange}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-500">Price varies</span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-2">{offer.title}</p>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span>{offer.availability}</span>
-                          {offer.confidence && (
-                            <span>{offer.confidence}% match</span>
-                          )}
-                        </div>
-                        
-                        <Button 
-                          onClick={() => handleBuyProduct(offer)}
-                          size="sm"
-                          className="bg-orange-600 hover:bg-orange-700"
-                        >
-                          {offer.isFallback ? 'Search on ' + offer.store : 'Buy Now'}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!isLoadingOffers && productOffers.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-600 mb-4">No purchase options found. Try searching manually:</p>
-                  <div className="flex gap-2 justify-center flex-wrap">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const searchQuery = createSearchQuery(selectedPart);
-                        const encodedQuery = encodeURIComponent(searchQuery);
-                        window.open(`https://www.amazon.com/s?k=${encodedQuery}`, '_blank');
-                      }}
-                    >
-                      Search Amazon
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const searchQuery = createSearchQuery(selectedPart);
-                        const encodedQuery = encodeURIComponent(searchQuery);
-                        window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`, '_blank');
-                      }}
-                    >
-                      Search eBay
-                    </Button>
-                  </div>
-                </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         )}
-
-        {/* Specifications and Compatibility */}
-        <Card className="mt-6">
-          <CardContent className="p-6">
-            <Tabs defaultValue="specs" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="specs">Specifications</TabsTrigger>
-                <TabsTrigger value="compatibility">Compatibility</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="specs" className="mt-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  {selectedPart?.specifications && Object.entries(selectedPart.specifications).map(([key, value]) => (
-                    <div key={key} className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="font-medium">{key}:</span>
-                      <span>{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="compatibility" className="mt-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium mb-3">Compatible Models:</h4>
-                  <div className="grid md:grid-cols-2 gap-2">
-                    {selectedPart?.compatibleModels?.map((model, index) => (
-                      <div key={index} className="px-3 py-2 bg-gray-50 rounded font-mono text-sm">
-                        {model}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
@@ -1338,14 +1373,12 @@ function App() {
   const renderStoresScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Header with Logo */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Local Stores</h1>
-            <p className="text-gray-600">
-              {/* FIXED - Show actual distance limit */}
-              Stores within 5 miles carrying: {selectedPart?.name}
-            </p>
+          <div className="flex items-center gap-4">
+            <PartFinderLogo size="medium" />
+            <TextLogo size="medium" />
+            <h1 className="text-3xl font-bold text-gray-900">Nearby Stores</h1>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => setCurrentScreen('results')} variant="outline">
@@ -1369,9 +1402,33 @@ function App() {
           </Card>
         )}
 
+        {/* Part Summary */}
+        {selectedPart && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                  <img 
+                    src={capturedImage || selectedPart.imageUrl} 
+                    alt="Part"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold">{selectedPart.name}</h3>
+                  <p className="text-sm text-gray-600">Part #{selectedPart.partNumber} • {selectedPart.brand}</p>
+                </div>
+                <Badge variant="outline">
+                  Stores within 5 miles
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stores List */}
         {nearbyStores.length > 0 ? (
-          <div className="space-y-4">
+          <div className="grid gap-4">
             {nearbyStores.map((store) => (
               <Card key={store.id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
@@ -1379,79 +1436,62 @@ function App() {
                     {/* Store Info */}
                     <div className="lg:col-span-2">
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-xl font-semibold">{store.name}</h3>
-                        <Badge 
-                          variant={store.availability?.status === 'in-stock' ? 'default' : 'secondary'}
-                          className={`${
-                            store.availability?.color === 'green' ? 'bg-green-100 text-green-800' :
-                            store.availability?.color === 'orange' ? 'bg-orange-100 text-orange-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {store.availability?.label || 'Call to Confirm'}
-                        </Badge>
+                        <div>
+                          <h3 className="font-semibold text-lg">{store.name}</h3>
+                          <p className="text-sm text-gray-600">{store.chain}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                            <span className="text-sm font-medium">{store.rating}</span>
+                          </div>
+                          <p className="text-sm text-gray-600">{store.distanceFormatted}</p>
+                        </div>
                       </div>
                       
-                      <p className="text-gray-600 mb-2">{store.address}</p>
-                      
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {store.distanceFormatted}
-                        </div>
-                        {store.rating && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            {store.rating} ({store.userRatingCount || 0})
-                          </div>
-                        )}
-                        {/* FIXED - Show likelihood score for debugging */}
-                        {store.likelihood && (
-                          <div className="flex items-center gap-1">
-                            <Target className="h-4 w-4" />
-                            {store.likelihood}% likely
-                          </div>
-                        )}
+                      <div className="space-y-1 text-sm text-gray-600">
+                        <p>{store.address}</p>
+                        <p>{store.city}, {store.state} {store.zipCode}</p>
+                        <p>{store.phone}</p>
                       </div>
 
                       {store.services && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {store.services.slice(0, 3).map((service, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {service}
-                            </Badge>
-                          ))}
+                        <div className="mt-3">
+                          <div className="flex flex-wrap gap-1">
+                            {store.services.slice(0, 3).map((service) => (
+                              <Badge key={service} variant="secondary" className="text-xs">
+                                {service}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Price & Hours */}
-                    <div>
-                      <div className="mb-3">
-                        <div className="flex items-center gap-1 mb-1">
-                          <DollarSign className="h-4 w-4 text-green-600" />
-                          <span className="font-medium">Estimated Price</span>
-                        </div>
-                        <p className="text-lg font-semibold text-green-600">
-                          {store.estimatedPrice?.formatted || store.estimatedPrice?.range || 'Call for Price'}
-                        </p>
+                    {/* Availability & Price */}
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium mb-1">Availability</p>
+                        <Badge 
+                          variant={store.availability.status === 'in-stock' ? 'default' : 'secondary'}
+                          className={store.availability.status === 'in-stock' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}
+                        >
+                          {store.availability.label}
+                        </Badge>
+                        <p className="text-xs text-gray-500 mt-1">{store.likelihood}% likelihood</p>
                       </div>
 
-                      {store.hours && (
+                      {store.estimatedPrice && (
                         <div>
-                          <div className="flex items-center gap-1 mb-1">
-                            <Clock className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium">Hours</span>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            {store.hours.monday || 'Call for hours'}
-                          </p>
+                          <p className="text-sm font-medium mb-1">Estimated Price</p>
+                          <p className="text-lg font-bold text-green-600">{store.estimatedPrice.formatted}</p>
+                          <p className="text-xs text-gray-500">{store.estimatedPrice.range}</p>
                         </div>
                       )}
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col gap-2">
+                    <div className="space-y-2">
                       <Button 
                         onClick={() => getDirections(store)}
                         className="w-full"
@@ -1473,7 +1513,7 @@ function App() {
                         </Button>
                       )}
                       
-                      {(store.website || store.googleMapsUri) && (
+                      {store.website && (
                         <Button 
                           onClick={() => visitWebsite(store)}
                           variant="outline"
@@ -1486,15 +1526,6 @@ function App() {
                       )}
                     </div>
                   </div>
-
-                  {/* AI Reason (for debugging) */}
-                  {store.aiReason && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-xs text-gray-500">
-                        <strong>AI Analysis:</strong> {store.aiReason}
-                      </p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
@@ -1503,17 +1534,48 @@ function App() {
           <Card>
             <CardContent className="p-8 text-center">
               <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Stores Found</h3>
+              <h3 className="text-lg font-medium mb-2">No stores found</h3>
               <p className="text-gray-600 mb-4">
                 We couldn't find any stores within 5 miles that carry this part.
               </p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex justify-center gap-2">
                 <Button onClick={() => setCurrentScreen('results')} variant="outline">
-                  Try Different Location
+                  Back to Results
                 </Button>
                 <Button onClick={resetToHome}>
-                  New Search
+                  Search Another Part
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ZIP Code Search Option */}
+        {locationError && (
+          <Card className="mt-6 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-orange-800 mb-3">Try searching a different area:</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Enter ZIP code (e.g., 90210)"
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      className="max-w-xs"
+                      maxLength={5}
+                    />
+                    <Button 
+                      onClick={handleZipCodeSearch}
+                      disabled={isLoadingStores || !zipCode.trim()}
+                      size="sm"
+                    >
+                      {isLoadingStores ? 'Searching...' : 'Search'}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1522,7 +1584,12 @@ function App() {
     </div>
   );
 
-  return renderScreen();
+  return (
+    <div className="App">
+      {renderScreen()}
+    </div>
+  );
 }
 
-export default App
+export default App;
+
