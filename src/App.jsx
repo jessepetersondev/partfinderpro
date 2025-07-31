@@ -136,6 +136,566 @@ const loadAPIServices = async () => {
   }
 };
 
+/**
+ * ENHANCED: AI-powered search query generation for human-readable searches
+ */
+const generateHumanSearchQuery = async (part) => {
+  if (!part) return 'appliance part';
+
+  console.log('🤖 Generating human-readable search query for:', part);
+
+  try {
+    const services = await loadAPIServices();
+    
+    // ENHANCED: Use AI to generate proper search query if available
+    if (services && services.config && services.config.isOpenAIConfigured()) {
+      console.log('Using AI to generate search query');
+      
+      // Create context for AI search query generation
+      const context = {
+        name: part.name || 'N/A',
+        brand: part.brand || 'N/A', 
+        partNumber: part.partNumber || 'N/A',
+        category: part.category || 'N/A',
+        description: part.description || 'N/A'
+      };
+
+      // ENHANCED: AI prompt for generating human search queries
+      const prompt = `Generate a natural, human-readable search query for finding this appliance part online. The query should be what a real person would type into Amazon, eBay, or Google to find this exact part.
+
+Part Information:
+- Name: ${context.name}
+- Brand: ${context.brand}
+- Part Number: ${context.partNumber}
+- Category: ${context.category}
+- Description: ${context.description}
+
+Requirements:
+1. Use only the most important identifying information
+2. Make it sound natural and human-like
+3. Include brand if it's a real brand (not "Generic" or "N/A")
+4. Include part number if it's real (not "Not visible" or "N/A")
+5. Be specific but concise (3-6 words maximum)
+6. Focus on what the part actually is, not generic terms
+
+Examples of GOOD queries:
+- "Whirlpool dishwasher door seal WPW10300924"
+- "GE refrigerator water filter"
+- "Maytag dryer heating element"
+- "KitchenAid mixer bowl"
+
+Examples of BAD queries:
+- "appliance replacement part"
+- "generic part for appliance"
+- "drain hose responsible appliance part"
+
+Generate only the search query, nothing else:`;
+
+      try {
+        // Use OpenAI to generate search query
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert at generating natural search queries for appliance parts. Generate concise, human-readable search terms that real people would use.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 50,
+            temperature: 0.3
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const aiQuery = data.choices[0]?.message?.content?.trim();
+          
+          if (aiQuery && aiQuery.length > 0 && aiQuery.length < 100) {
+            console.log('✅ AI generated search query:', aiQuery);
+            return aiQuery;
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI search query generation failed:', aiError);
+      }
+    }
+
+    // ENHANCED: Fallback to intelligent rule-based query generation
+    return generateIntelligentFallbackQuery(part);
+
+  } catch (error) {
+    console.error('Error generating search query:', error);
+    return generateIntelligentFallbackQuery(part);
+  }
+};
+
+/**
+ * ENHANCED: Intelligent fallback query generation with better logic
+ */
+const generateIntelligentFallbackQuery = (part) => {
+  console.log('🔧 Generating intelligent fallback query for:', part);
+
+  // ENHANCED: Helper function to check if value is meaningful
+  const isMeaningfulValue = (value) => {
+    if (!value || typeof value !== 'string') return false;
+    const cleanValue = value.trim().toLowerCase();
+    
+    const invalidValues = [
+      'not visible', 'not found', 'unknown', 'undefined', 'null',
+      'generic', 'n/a', 'na', '', 'appliance part', 'parts'
+    ];
+    
+    return !invalidValues.includes(cleanValue) && cleanValue.length > 1;
+  };
+
+  // ENHANCED: Build query components in order of importance
+  const queryComponents = [];
+
+  // 1. Brand (if meaningful and real)
+  if (isMeaningfulValue(part.brand)) {
+    const brand = part.brand.trim();
+    // Only include if it's a real brand name
+    const realBrands = ['whirlpool', 'ge', 'samsung', 'lg', 'frigidaire', 'maytag', 'kenmore', 'bosch', 'kitchenaid'];
+    if (realBrands.some(b => brand.toLowerCase().includes(b)) || brand.length > 2) {
+      queryComponents.push(brand);
+    }
+  }
+
+  // 2. Specific part name (if meaningful)
+  if (isMeaningfulValue(part.name)) {
+    const name = part.name.trim();
+    // Clean up the name to be more searchable
+    const cleanName = name
+      .replace(/appliance/gi, '')
+      .replace(/part/gi, '')
+      .replace(/replacement/gi, '')
+      .trim();
+    
+    if (cleanName.length > 2) {
+      queryComponents.push(cleanName);
+    }
+  }
+
+  // 3. Part number (if real)
+  if (isMeaningfulValue(part.partNumber)) {
+    const partNum = part.partNumber.trim();
+    // Only include if it looks like a real part number
+    if (partNum.length >= 4 && /[A-Za-z0-9]/.test(partNum)) {
+      queryComponents.push(partNum);
+    }
+  }
+
+  // ENHANCED: If we have components, create query
+  if (queryComponents.length > 0) {
+    const query = queryComponents.join(' ');
+    console.log('✅ Generated intelligent query:', query);
+    return query;
+  }
+
+  // ENHANCED: Smart fallback based on description or category
+  if (part.description && isMeaningfulValue(part.description)) {
+    // Extract key terms from description
+    const desc = part.description.toLowerCase();
+    
+    // Look for appliance type and part type
+    const applianceTypes = ['dishwasher', 'refrigerator', 'washer', 'dryer', 'oven', 'microwave', 'freezer'];
+    const partTypes = ['door seal', 'water filter', 'heating element', 'motor', 'pump', 'switch', 'belt', 'hose'];
+    
+    const foundAppliance = applianceTypes.find(type => desc.includes(type));
+    const foundPartType = partTypes.find(type => desc.includes(type));
+    
+    if (foundAppliance && foundPartType) {
+      const smartQuery = `${foundAppliance} ${foundPartType}`;
+      console.log('✅ Generated smart description-based query:', smartQuery);
+      return smartQuery;
+    }
+    
+    if (foundPartType) {
+      const smartQuery = `${foundPartType} appliance`;
+      console.log('✅ Generated part-type query:', smartQuery);
+      return smartQuery;
+    }
+  }
+
+  // ENHANCED: Category-based fallback
+  if (isMeaningfulValue(part.category)) {
+    const category = part.category.toLowerCase();
+    const categoryMappings = {
+      'seals & gaskets': 'appliance door seal',
+      'filters': 'appliance water filter',
+      'heating elements': 'appliance heating element',
+      'motors': 'appliance motor',
+      'pumps': 'appliance pump',
+      'switches': 'appliance switch',
+      'belts': 'appliance belt',
+      'hoses': 'appliance hose'
+    };
+    
+    const mappedQuery = categoryMappings[category];
+    if (mappedQuery) {
+      console.log('✅ Generated category-based query:', mappedQuery);
+      return mappedQuery;
+    }
+  }
+
+  // Final fallback
+  const finalQuery = 'appliance replacement part';
+  console.log('⚠️ Using final fallback query:', finalQuery);
+  return finalQuery;
+};
+
+/**
+ * ENHANCED: AI-powered category detection and enhancement
+ */
+const enhancePartCategory = async (part) => {
+  if (!part) return 'N/A';
+
+  console.log('🤖 Enhancing part category for:', part);
+
+  try {
+    const services = await loadAPIServices();
+    
+    // ENHANCED: Use AI to determine specific category if available
+    if (services && services.config && services.config.isOpenAIConfigured()) {
+      console.log('Using AI to enhance category');
+      
+      const context = {
+        name: part.name || 'N/A',
+        brand: part.brand || 'N/A',
+        partNumber: part.partNumber || 'N/A',
+        description: part.description || 'N/A',
+        currentCategory: part.category || 'N/A'
+      };
+
+      const prompt = `Identify the specific category for this appliance part. Be precise and specific, not generic.
+
+Part Information:
+- Name: ${context.name}
+- Brand: ${context.brand}
+- Part Number: ${context.partNumber}
+- Description: ${context.description}
+- Current Category: ${context.currentCategory}
+
+Choose the MOST SPECIFIC category from this list:
+- Door Seals & Gaskets
+- Water Filters
+- Heating Elements
+- Motors & Pumps
+- Control Boards
+- Switches & Controls
+- Belts & Hoses
+- Drain Components
+- Ice Maker Parts
+- Compressor Parts
+- Fan Components
+- Thermostats
+- Valves & Solenoids
+- Dispensers
+- Racks & Accessories
+
+If none fit exactly, create a specific category based on what the part actually is.
+
+Requirements:
+1. Be specific, not generic (avoid "Parts" or "Components")
+2. Focus on the part's function
+3. Use standard appliance part terminology
+4. Return only the category name, nothing else
+
+Category:`;
+
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert in appliance parts categorization. Provide specific, accurate categories for appliance parts.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 30,
+            temperature: 0.1
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const aiCategory = data.choices[0]?.message?.content?.trim();
+          
+          if (aiCategory && aiCategory.length > 0 && aiCategory.length < 50) {
+            console.log('✅ AI enhanced category:', aiCategory);
+            return aiCategory;
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI category enhancement failed:', aiError);
+      }
+    }
+
+    // ENHANCED: Intelligent fallback category detection
+    return detectCategoryFromContent(part);
+
+  } catch (error) {
+    console.error('Error enhancing category:', error);
+    return detectCategoryFromContent(part);
+  }
+};
+
+/**
+ * ENHANCED: Intelligent category detection from part content
+ */
+const detectCategoryFromContent = (part) => {
+  console.log('🔧 Detecting category from content for:', part);
+
+  const name = (part.name || '').toLowerCase();
+  const description = (part.description || '').toLowerCase();
+  const partNumber = (part.partNumber || '').toLowerCase();
+  const content = `${name} ${description} ${partNumber}`;
+
+  // ENHANCED: Specific category detection patterns
+  const categoryPatterns = {
+    'Door Seals & Gaskets': ['door seal', 'gasket', 'door gasket', 'seal', 'rubber seal'],
+    'Water Filters': ['water filter', 'filter', 'filtration', 'purifier'],
+    'Heating Elements': ['heating element', 'heater', 'element', 'heating coil'],
+    'Motors & Pumps': ['motor', 'pump', 'circulation pump', 'drain pump', 'wash pump'],
+    'Control Boards': ['control board', 'circuit board', 'pcb', 'electronic control'],
+    'Switches & Controls': ['switch', 'control', 'button', 'knob', 'selector'],
+    'Belts & Hoses': ['belt', 'hose', 'drain hose', 'fill hose', 'drive belt'],
+    'Drain Components': ['drain', 'drainage', 'drain assembly', 'drain valve'],
+    'Ice Maker Parts': ['ice maker', 'ice', 'ice dispenser', 'ice chute'],
+    'Compressor Parts': ['compressor', 'condenser', 'evaporator'],
+    'Fan Components': ['fan', 'blower', 'fan blade', 'fan motor'],
+    'Thermostats': ['thermostat', 'temperature sensor', 'temp sensor'],
+    'Valves & Solenoids': ['valve', 'solenoid', 'water valve', 'inlet valve'],
+    'Dispensers': ['dispenser', 'soap dispenser', 'detergent dispenser'],
+    'Racks & Accessories': ['rack', 'shelf', 'basket', 'tray', 'drawer']
+  };
+
+  // Find the best matching category
+  for (const [category, patterns] of Object.entries(categoryPatterns)) {
+    for (const pattern of patterns) {
+      if (content.includes(pattern)) {
+        console.log(`✅ Detected category "${category}" from pattern "${pattern}"`);
+        return category;
+      }
+    }
+  }
+
+  // ENHANCED: Fallback based on appliance type
+  const appliancePatterns = {
+    'Dishwasher Parts': ['dishwasher'],
+    'Refrigerator Parts': ['refrigerator', 'fridge', 'freezer'],
+    'Washer Parts': ['washer', 'washing machine'],
+    'Dryer Parts': ['dryer'],
+    'Oven Parts': ['oven', 'range', 'stove'],
+    'Microwave Parts': ['microwave']
+  };
+
+  for (const [category, patterns] of Object.entries(appliancePatterns)) {
+    for (const pattern of patterns) {
+      if (content.includes(pattern)) {
+        console.log(`✅ Detected appliance-based category "${category}" from pattern "${pattern}"`);
+        return category;
+      }
+    }
+  }
+
+  // Final fallback
+  console.log('⚠️ Could not detect specific category, using N/A');
+  return 'N/A';
+};
+
+/**
+ * ENHANCED: Comprehensive part data enhancement with AI
+ */
+const enhancePartDataWithAI = async (part) => {
+  if (!part) return null;
+
+  console.log('🤖 Enhancing part data with AI:', part);
+
+  try {
+    const services = await loadAPIServices();
+    
+    // ENHANCED: Use AI to fill missing fields if available
+    if (services && services.config && services.config.isOpenAIConfigured()) {
+      console.log('Using AI to enhance missing part data');
+      
+      const context = {
+        name: part.name || 'N/A',
+        brand: part.brand || 'N/A',
+        partNumber: part.partNumber || 'N/A',
+        category: part.category || 'N/A',
+        description: part.description || 'N/A'
+      };
+
+      const prompt = `Analyze this appliance part and fill in any missing information. Be accurate and specific, use "N/A" only if truly unknown.
+
+Current Part Information:
+- Name: ${context.name}
+- Brand: ${context.brand}
+- Part Number: ${context.partNumber}
+- Category: ${context.category}
+- Description: ${context.description}
+
+Please provide enhanced information in this exact JSON format:
+{
+  "name": "specific part name (not generic)",
+  "brand": "actual brand name or N/A",
+  "partNumber": "actual part number or N/A", 
+  "category": "specific category (not generic)",
+  "description": "detailed description of what this part does"
+}
+
+Requirements:
+1. If current data says "Not visible" or "Generic", try to infer from other fields
+2. Be specific with categories (e.g., "Door Seals & Gaskets" not "Parts")
+3. Only use "N/A" if truly cannot be determined
+4. Make descriptions functional and helpful
+5. Ensure part numbers look realistic (letters/numbers, not "Not visible")
+
+JSON:`;
+
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert in appliance parts. Provide accurate, specific information about appliance parts. Always respond with valid JSON.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 200,
+            temperature: 0.2
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const aiResponse = data.choices[0]?.message?.content?.trim();
+          
+          if (aiResponse) {
+            try {
+              const enhancedData = JSON.parse(aiResponse);
+              
+              // Validate the enhanced data
+              if (enhancedData.name && enhancedData.category && enhancedData.description) {
+                console.log('✅ AI enhanced part data:', enhancedData);
+                
+                // Merge with original data, preferring AI enhancements
+                const enhanced = {
+                  ...part,
+                  name: enhancedData.name !== 'N/A' ? enhancedData.name : part.name,
+                  brand: enhancedData.brand !== 'N/A' ? enhancedData.brand : part.brand,
+                  partNumber: enhancedData.partNumber !== 'N/A' ? enhancedData.partNumber : part.partNumber,
+                  category: enhancedData.category !== 'N/A' ? enhancedData.category : part.category,
+                  description: enhancedData.description !== 'N/A' ? enhancedData.description : part.description
+                };
+                
+                return enhanced;
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse AI enhancement response:', parseError);
+            }
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI part enhancement failed:', aiError);
+      }
+    }
+
+    // ENHANCED: Fallback to rule-based enhancement
+    return enhancePartDataRuleBased(part);
+
+  } catch (error) {
+    console.error('Error enhancing part data:', error);
+    return enhancePartDataRuleBased(part);
+  }
+};
+
+/**
+ * ENHANCED: Rule-based part data enhancement
+ */
+const enhancePartDataRuleBased = (part) => {
+  console.log('🔧 Enhancing part data with rules:', part);
+
+  const enhanced = { ...part };
+
+  // ENHANCED: Clean and validate each field
+  const cleanField = (value, fieldName) => {
+    if (!value || typeof value !== 'string') return 'N/A';
+    
+    const cleanValue = value.trim();
+    const lowerValue = cleanValue.toLowerCase();
+    
+    const invalidValues = [
+      'not visible', 'not found', 'unknown', 'undefined', 'null', 'generic'
+    ];
+    
+    if (invalidValues.includes(lowerValue) || cleanValue.length === 0) {
+      return 'N/A';
+    }
+    
+    return cleanValue;
+  };
+
+  // Clean all fields
+  enhanced.name = cleanField(enhanced.name, 'name');
+  enhanced.brand = cleanField(enhanced.brand, 'brand');
+  enhanced.partNumber = cleanField(enhanced.partNumber, 'partNumber');
+  enhanced.description = cleanField(enhanced.description, 'description');
+
+  // ENHANCED: Set specific category
+  enhanced.category = detectCategoryFromContent(enhanced);
+
+  // ENHANCED: Improve name if too generic
+  if (enhanced.name === 'N/A' || enhanced.name === 'Appliance Part') {
+    if (enhanced.category !== 'N/A') {
+      enhanced.name = enhanced.category.replace(' & ', ' ').replace('s', ''); // Simplify category for name
+    }
+  }
+
+  // ENHANCED: Improve description if missing or generic
+  if (enhanced.description === 'N/A' || enhanced.description.length < 10) {
+    if (enhanced.category !== 'N/A') {
+      enhanced.description = `Replacement ${enhanced.category.toLowerCase()} for appliances. Ensures proper function and performance.`;
+    } else {
+      enhanced.description = 'Replacement appliance part. Consult your appliance manual for compatibility.';
+    }
+  }
+
+  console.log('✅ Enhanced part data with rules:', enhanced);
+  return enhanced;
+};
+
 function App() {
   const [currentScreen, setCurrentScreen] = useState('home')
   const [selectedPart, setSelectedPart] = useState(null)
@@ -176,114 +736,36 @@ function App() {
   }, []);
 
   /**
-   * FIXED: Create proper search query with strict validation to exclude "Not visible" and invalid values
-   */
-  const createSearchQuery = (part) => {
-    if (!part) {
-      console.warn('No part data provided for search query');
-      return 'appliance part';
-    }
-
-    console.log('Creating search query from part data:', part);
-
-    // FIXED: Function to validate if a value is usable
-    const isValidValue = (value) => {
-      if (!value) return false;
-      if (typeof value !== 'string') return false;
-      const cleanValue = value.trim().toLowerCase();
-      
-      // FIXED: Exclude all variations of invalid values
-      const invalidValues = [
-        'not visible',
-        'not found',
-        'unknown',
-        'undefined',
-        'null',
-        'generic',
-        'n/a',
-        'na',
-        ''
-      ];
-      
-      return !invalidValues.includes(cleanValue) && cleanValue.length > 0;
-    };
-
-    // FIXED: Extract only valid values
-    const validTerms = [];
-    
-    // Check each field and only add if valid
-    if (isValidValue(part.brand)) {
-      validTerms.push(part.brand.trim());
-    }
-    
-    if (isValidValue(part.name) && part.name !== 'Appliance Part') {
-      validTerms.push(part.name.trim());
-    }
-    
-    if (isValidValue(part.partNumber)) {
-      validTerms.push(part.partNumber.trim());
-    }
-    
-    // FIXED: Use category only if it's specific and valid
-    if (isValidValue(part.category) && part.category !== 'Parts') {
-      validTerms.push(part.category.trim());
-    }
-
-    // FIXED: Build search query with fallback strategies
-    let searchQuery = '';
-    
-    if (validTerms.length > 0) {
-      searchQuery = validTerms.join(' ');
-    } else {
-      // FIXED: Use description or fallback to generic appliance part search
-      if (part.description && isValidValue(part.description) && 
-          !part.description.toLowerCase().includes('dimmer switch')) {
-        // Extract meaningful terms from description
-        const descWords = part.description.split(' ')
-          .filter(word => word.length > 3 && !['used', 'works', 'control'].includes(word.toLowerCase()))
-          .slice(0, 3);
-        
-        if (descWords.length > 0) {
-          searchQuery = descWords.join(' ') + ' appliance part';
-        } else {
-          searchQuery = 'appliance replacement part';
-        }
-      } else {
-        searchQuery = 'appliance replacement part';
-      }
-    }
-
-    console.log('Generated search query:', searchQuery);
-    
-    return searchQuery;
-  };
-
-  /**
-   * FIXED: Generate dynamic pricing based on part category and complexity
+   * ENHANCED: Generate dynamic pricing based on part category and complexity
    */
   const generateDynamicPricing = (part, store) => {
     if (!part) return { price: 25.99, range: '$20-$35' };
 
-    // FIXED: Base price calculation based on part category and complexity
-    let basePrice = 25.99; // Default base price
+    // ENHANCED: More sophisticated pricing based on specific categories
+    let basePrice = 25.99;
     
-    // Category-based pricing
     const categoryPricing = {
-      'Seals & Gaskets': { base: 18.99, variance: 15 },
-      'Filters': { base: 22.99, variance: 12 },
-      'Motors': { base: 89.99, variance: 40 },
+      'Door Seals & Gaskets': { base: 18.99, variance: 15 },
+      'Water Filters': { base: 22.99, variance: 12 },
+      'Motors & Pumps': { base: 89.99, variance: 40 },
       'Control Boards': { base: 125.99, variance: 60 },
-      'Pumps': { base: 75.99, variance: 35 },
       'Heating Elements': { base: 45.99, variance: 20 },
-      'Switches': { base: 15.99, variance: 10 },
-      'Belts': { base: 12.99, variance: 8 },
-      'Parts': { base: 28.99, variance: 18 } // Generic parts
+      'Switches & Controls': { base: 15.99, variance: 10 },
+      'Belts & Hoses': { base: 12.99, variance: 8 },
+      'Compressor Parts': { base: 150.99, variance: 80 },
+      'Fan Components': { base: 35.99, variance: 18 },
+      'Thermostats': { base: 28.99, variance: 15 },
+      'Valves & Solenoids': { base: 32.99, variance: 16 },
+      'Ice Maker Parts': { base: 65.99, variance: 30 },
+      'Dishwasher Parts': { base: 24.99, variance: 12 },
+      'Refrigerator Parts': { base: 29.99, variance: 15 },
+      'N/A': { base: 28.99, variance: 18 }
     };
 
-    const categoryInfo = categoryPricing[part.category] || categoryPricing['Parts'];
+    const categoryInfo = categoryPricing[part.category] || categoryPricing['N/A'];
     basePrice = categoryInfo.base;
 
-    // FIXED: Store-specific pricing adjustments
+    // Store-specific pricing adjustments
     const storeMultipliers = {
       'Amazon': 1.0,
       'eBay': 0.85,
@@ -295,14 +777,12 @@ function App() {
 
     const storeMultiplier = storeMultipliers[store] || 1.0;
     
-    // FIXED: Add some randomness for realistic pricing
+    // Add realistic variance
     const randomVariance = (Math.random() - 0.5) * (categoryInfo.variance * 0.4);
     const finalPrice = (basePrice + randomVariance) * storeMultiplier;
     
-    // FIXED: Round to realistic price points
     const roundedPrice = Math.round(finalPrice * 100) / 100;
     
-    // FIXED: Generate price range
     const lowerBound = Math.max(roundedPrice * 0.85, 5.99);
     const upperBound = roundedPrice * 1.25;
     const priceRange = `$${Math.round(lowerBound)}-$${Math.round(upperBound)}`;
@@ -328,8 +808,8 @@ function App() {
       if (services && services.productPurchase && services.productPurchase.isConfigured()) {
         console.log('🛒 Loading product offers...');
         
-        // FIXED: Use improved search query creation
-        const searchQuery = createSearchQuery(part);
+        // ENHANCED: Use AI-generated search query
+        const searchQuery = await generateHumanSearchQuery(part);
         
         const offers = await services.productPurchase.searchProducts(searchQuery, {
           maxResults: 10,
@@ -343,39 +823,35 @@ function App() {
         console.log(`✅ Found ${relevantOffers.length} relevant product offers`);
       } else {
         console.log('🔄 Product purchase service not configured, using fallback');
-        setProductOffers(generateFallbackOffers(part));
+        setProductOffers(await generateFallbackOffers(part));
       }
     } catch (error) {
       console.error('Error loading product offers:', error);
-      setProductOffers(generateFallbackOffers(part));
+      setProductOffers(await generateFallbackOffers(part));
     } finally {
       setIsLoadingOffers(false);
     }
   };
 
   /**
-   * FIXED: Generate fallback offers with proper search query handling and dynamic pricing
+   * ENHANCED: Generate fallback offers with AI-powered search queries
    */
-  const generateFallbackOffers = (part) => {
-    // FIXED: Use improved search query creation and encoding
-    const searchQuery = createSearchQuery(part);
+  const generateFallbackOffers = async (part) => {
+    // ENHANCED: Use AI-generated search query
+    const searchQuery = await generateHumanSearchQuery(part);
     const encodedSearchQuery = encodeURIComponent(searchQuery);
     
-    console.log('Generating fallback offers with search query:', searchQuery);
-    console.log('Encoded search query:', encodedSearchQuery);
+    console.log('Generating fallback offers with AI search query:', searchQuery);
     
-    // FIXED: Ensure part data exists with proper fallbacks
-    const partName = (part?.name && part.name !== 'Appliance Part') ? part.name : 'Replacement Part';
-    const partNumber = (part?.partNumber && part.partNumber.toLowerCase() !== 'not visible') ? part.partNumber : '';
+    const partName = part?.name !== 'N/A' ? part.name : 'Replacement Part';
+    const partNumber = part?.partNumber !== 'N/A' ? part.partNumber : '';
     const displayTitle = partNumber ? `${partName} - ${partNumber}` : partName;
     
-    // FIXED: Generate dynamic pricing for each store
     const stores = ['Amazon', 'eBay', 'Walmart'];
     
     return stores.map((store, index) => {
       const pricing = generateDynamicPricing(part, store);
       
-      // FIXED: Store-specific URL patterns
       const urlPatterns = {
         'Amazon': `https://www.amazon.com/s?k=${encodedSearchQuery}&tag=partfinderpro-20`,
         'eBay': `https://www.ebay.com/sch/i.html?_nkw=${encodedSearchQuery}`,
@@ -390,16 +866,16 @@ function App() {
         currency: 'USD',
         availability: 'In Stock',
         affiliateUrl: urlPatterns[store],
-        confidence: 85 - (index * 5), // Slightly decreasing confidence
+        confidence: 85 - (index * 5),
         isFallback: true,
-        searchQuery: searchQuery, // Store original search query for debugging
+        searchQuery: searchQuery,
         priceRange: pricing.range
       };
     });
   };
 
   /**
-   * FIXED: Handle buying a product with enhanced debugging
+   * Handle buying a product with enhanced debugging
    */
   const handleBuyProduct = (offer) => {
     if (!offer || !offer.affiliateUrl) {
@@ -407,23 +883,17 @@ function App() {
       return;
     }
 
-    // FIXED: Enhanced tracking and debugging
     console.log('🛒 User clicking buy button for:', {
       store: offer.store,
       product: offer.title,
       price: offer.price,
-      partNumber: selectedPart?.partNumber,
-      searchQuery: offer.searchQuery || 'not available',
-      affiliateUrl: offer.affiliateUrl,
-      selectedPartData: selectedPart
+      searchQuery: offer.searchQuery,
+      affiliateUrl: offer.affiliateUrl
     });
 
-    // FIXED: Validate URL before opening
     try {
       const url = new URL(offer.affiliateUrl);
       console.log('✅ Opening valid URL:', url.href);
-      
-      // Open affiliate URL in new tab
       window.open(offer.affiliateUrl, '_blank', 'noopener,noreferrer');
     } catch (urlError) {
       console.error('❌ Invalid URL:', offer.affiliateUrl, urlError);
@@ -504,7 +974,7 @@ function App() {
   };
 
   /**
-   * FIXED: Process captured/uploaded image with enhanced data validation
+   * ENHANCED: Process captured/uploaded image with AI enhancement
    */
   const processImage = async (imageData) => {
     setIsProcessing(true);
@@ -527,8 +997,8 @@ function App() {
           if (identifiedPart) {
             identifiedPart.source = 'ai';
             
-            // FIXED: Validate and clean part data
-            identifiedPart = validateAndCleanPartData(identifiedPart);
+            // ENHANCED: Use AI to enhance the part data
+            identifiedPart = await enhancePartDataWithAI(identifiedPart);
           }
         } catch (aiError) {
           console.warn('AI identification failed, falling back to demo mode:', aiError);
@@ -539,20 +1009,20 @@ function App() {
       if (!identifiedPart) {
         // Fallback to demo mode
         console.log('Using demo mode for part identification');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing
-        identifiedPart = { ...mockParts[0] }; // Use first mock part
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        identifiedPart = { ...mockParts[0] };
         identifiedPart.source = 'demo';
         
-        // FIXED: Ensure demo data is also validated
-        identifiedPart = validateAndCleanPartData(identifiedPart);
+        // ENHANCED: Enhance demo data too
+        identifiedPart = await enhancePartDataWithAI(identifiedPart);
       }
 
       if (identifiedPart) {
-        console.log('✅ Part identified:', identifiedPart);
+        console.log('✅ Part identified and enhanced:', identifiedPart);
         setSelectedPart(identifiedPart);
         setCurrentScreen('results');
         
-        // NEW: Automatically load product offers
+        // Load product offers with enhanced data
         await loadProductOffers(identifiedPart);
       } else {
         setError('Could not identify the part. Please try a clearer image.');
@@ -566,71 +1036,7 @@ function App() {
   };
 
   /**
-   * FIXED: Validate and clean part data to prevent "Not Visible" issues
-   */
-  const validateAndCleanPartData = (part) => {
-    if (!part) return null;
-
-    // FIXED: Clean up any "Not Visible" or invalid values
-    const cleanedPart = { ...part };
-
-    // FIXED: Function to clean individual fields
-    const cleanField = (value, fieldName) => {
-      if (!value || typeof value !== 'string') return null;
-      
-      const cleanValue = value.trim();
-      const lowerValue = cleanValue.toLowerCase();
-      
-      // FIXED: List of invalid values to exclude
-      const invalidValues = [
-        'not visible',
-        'not found',
-        'unknown',
-        'undefined',
-        'null',
-        'n/a',
-        'na'
-      ];
-      
-      if (invalidValues.includes(lowerValue) || cleanValue.length === 0) {
-        return null;
-      }
-      
-      return cleanValue;
-    };
-
-    // FIXED: Clean string fields with proper fallbacks
-    const cleanedName = cleanField(cleanedPart.name, 'name');
-    const cleanedBrand = cleanField(cleanedPart.brand, 'brand');
-    const cleanedPartNumber = cleanField(cleanedPart.partNumber, 'partNumber');
-    const cleanedCategory = cleanField(cleanedPart.category, 'category');
-
-    // FIXED: Set cleaned values or appropriate defaults
-    cleanedPart.name = cleanedName || 'Appliance Part';
-    cleanedPart.brand = cleanedBrand || '';  // Leave empty if not valid
-    cleanedPart.partNumber = cleanedPartNumber || ''; // Leave empty if not valid
-    cleanedPart.category = cleanedCategory || 'Parts';
-
-    // FIXED: Clean description
-    if (cleanedPart.description) {
-      const cleanedDescription = cleanField(cleanedPart.description, 'description');
-      cleanedPart.description = cleanedDescription || 'Replacement appliance part';
-    } else {
-      cleanedPart.description = 'Replacement appliance part';
-    }
-
-    // FIXED: Ensure confidence is a valid number
-    if (!cleanedPart.confidence || isNaN(cleanedPart.confidence)) {
-      cleanedPart.confidence = 75; // Default confidence
-    }
-
-    console.log('✅ Cleaned part data:', cleanedPart);
-    
-    return cleanedPart;
-  };
-
-  /**
-   * Handle demo mode
+   * ENHANCED: Handle demo mode with AI enhancement
    */
   const handleDemo = async () => {
     setError(null);
@@ -642,23 +1048,20 @@ function App() {
       let demoPartData = { ...mockParts[0] };
 
       if (services && services.partsDatabase) {
-        // Enhance demo data with API services
         demoPartData = await services.partsDatabase.enhancePartData(demoPartData);
         demoPartData.source = 'api-demo';
       } else {
         demoPartData.source = 'demo';
       }
 
-      // FIXED: Ensure demo data is validated
-      demoPartData = validateAndCleanPartData(demoPartData);
+      // ENHANCED: Use AI to enhance demo data
+      demoPartData = await enhancePartDataWithAI(demoPartData);
 
-      // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       setSelectedPart(demoPartData);
       setCurrentScreen('results');
       
-      // NEW: Load product offers for demo part
       await loadProductOffers(demoPartData);
     } catch (error) {
       console.error('Error in demo mode:', error);
@@ -669,7 +1072,7 @@ function App() {
   };
 
   /**
-   * FIXED - Handle finding local stores with proper distance filtering
+   * Handle finding local stores with proper distance filtering
    */
   const handleFindStores = async () => {
     if (!selectedPart) return;
@@ -681,14 +1084,11 @@ function App() {
     try {
       const services = await loadAPIServices();
       
-      // FIXED - Use stricter distance limit (3-5 miles instead of 25)
       const maxDistance = 5; // Maximum 5 miles
       
-      // Always try to use the AI store locator first
       if (services && services.storeFinder) {
         console.log(`Using AI Store Locator for store finding within ${maxDistance} miles`);
         
-        // Get user location first
         let location;
         if (services.geolocation) {
           try {
@@ -698,8 +1098,6 @@ function App() {
           } catch (locationError) {
             console.warn('Could not get user location:', locationError);
             setLocationError('Location access denied. Please enable location services or enter your ZIP code below.');
-            
-            // Don't use fallback location - require user input
             setIsLoadingStores(false);
             return;
           }
@@ -710,7 +1108,6 @@ function App() {
           return;
         }
 
-        // FIXED - Use AI store locator with strict distance limit
         const stores = await services.storeFinder.findNearbyStores(selectedPart, location, maxDistance);
         setNearbyStores(stores);
         
@@ -720,11 +1117,9 @@ function App() {
           setError(`No stores found within ${maxDistance} miles. Try entering a ZIP code to search a different area.`);
         }
       } else {
-        // Only fallback to demo if services completely failed to load
         console.log('Services failed to load, using demo mode for store finding');
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // FIXED - Create demo stores with realistic close distances
         const demoStores = [
           {
             id: 'demo_1',
@@ -735,7 +1130,7 @@ function App() {
             state: 'CA',
             zipCode: '90210',
             phone: '(555) 123-4567',
-            distance: 1.8, // FIXED - Closer distance
+            distance: 1.8,
             distanceFormatted: '1.8 mi',
             rating: 4.2,
             availability: { status: 'in-stock', label: 'Likely In Stock', color: 'green' },
@@ -755,7 +1150,7 @@ function App() {
             state: 'CA',
             zipCode: '90210',
             phone: '(555) 234-5678',
-            distance: 2.4, // FIXED - Closer distance
+            distance: 2.4,
             distanceFormatted: '2.4 mi',
             rating: 4.3,
             availability: { status: 'possible', label: 'May Have In Stock', color: 'orange' },
@@ -775,7 +1170,7 @@ function App() {
             state: 'CA',
             zipCode: '90210',
             phone: '(555) 345-6789',
-            distance: 3.2, // FIXED - Closer distance
+            distance: 3.2,
             distanceFormatted: '3.2 mi',
             rating: 4.7,
             availability: { status: 'in-stock', label: 'Likely In Stock', color: 'green' },
@@ -789,7 +1184,7 @@ function App() {
         ];
         
         setNearbyStores(demoStores);
-        setUserLocation({ latitude: 34.0522, longitude: -118.2437 }); // Demo location
+        setUserLocation({ latitude: 34.0522, longitude: -118.2437 });
       }
 
       setCurrentScreen('stores');
@@ -806,7 +1201,7 @@ function App() {
   };
 
   /**
-   * FIXED - Handle ZIP code search with proper distance filtering
+   * Handle ZIP code search with proper distance filtering
    */
   const handleZipCodeSearch = async () => {
     if (!selectedPart || !zipCode.trim()) {
@@ -814,7 +1209,6 @@ function App() {
       return;
     }
 
-    // Validate ZIP code format
     const zipRegex = /^\d{5}$/;
     if (!zipRegex.test(zipCode.trim())) {
       setError('Please enter a valid 5-digit ZIP code.');
@@ -827,7 +1221,7 @@ function App() {
 
     try {
       const services = await loadAPIServices();
-      const maxDistance = 5; // FIXED - Use same strict distance limit
+      const maxDistance = 5;
       
       if (services && services.storeFinder && services.storeFinder.findStoresByZipCode) {
         console.log(`Searching for stores near ZIP code ${zipCode} within ${maxDistance} miles`);
@@ -835,7 +1229,6 @@ function App() {
         const stores = await services.storeFinder.findStoresByZipCode(selectedPart, zipCode.trim(), maxDistance);
         setNearbyStores(stores);
         
-        // Set user location based on ZIP code
         if (stores.length > 0 && stores[0].userLocation) {
           setUserLocation(stores[0].userLocation);
         }
@@ -864,7 +1257,6 @@ function App() {
   const getDirections = (store) => {
     if (userLocation) {
       const origin = `${userLocation.latitude},${userLocation.longitude}`;
-      // Use store coordinates from the AI store locator (coordinates.lat/lng format)
       const storeLat = store.coordinates?.lat || store.latitude || '34.0522';
       const storeLng = store.coordinates?.lng || store.longitude || '-118.2437';
       const destination = `${storeLat},${storeLng}`;
@@ -872,7 +1264,6 @@ function App() {
       console.log(`Directions: From ${origin} to ${destination}`);
       window.open(url, '_blank');
     } else {
-      // Fallback to store address search if no user location
       const address = store.address || `${store.name}`;
       const url = `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
       window.open(url, '_blank');
@@ -910,8 +1301,7 @@ function App() {
     setUserLocation(null);
     setLocationError(null);
     setError(null);
-    setZipCode(''); // FIXED - Reset ZIP code
-    // NEW: Reset purchase state
+    setZipCode('');
     setProductOffers([]);
     setShowPurchaseOptions(false);
   };
@@ -1135,7 +1525,6 @@ function App() {
                   <Badge variant={selectedPart.source === 'ai' ? 'default' : 'secondary'}>
                     {selectedPart.source === 'ai' ? 'AI Identified' : 'Demo Mode'}
                   </Badge>
-                  {/* FIXED: Display confidence as percentage (95% instead of 0.95%) */}
                   <Badge variant="outline">
                     {Math.round(selectedPart.confidence)}% Match
                   </Badge>
@@ -1175,7 +1564,7 @@ function App() {
                 </CardContent>
               </Card>
 
-              {/* NEW: Purchase Options */}
+              {/* Purchase Options */}
               <Card className="shadow-lg bg-white border-0">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
