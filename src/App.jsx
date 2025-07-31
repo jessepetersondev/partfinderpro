@@ -160,7 +160,7 @@ const generateHumanSearchQuery = async (part) => {
         description: part.description || 'N/A'
       };
 
-      // ENHANCED: AI prompt for generating human search queries
+      // ENHANCED: AI prompt for generating human search queries with appliance type
       const prompt = `Generate a natural, human-readable search query for finding this appliance part online. The query should be what a real person would type into Amazon, eBay, or Google to find this exact part.
 
 Part Information:
@@ -171,23 +171,26 @@ Part Information:
 - Description: ${context.description}
 
 Requirements:
-1. Use only the most important identifying information
-2. Make it sound natural and human-like
-3. Include brand if it's a real brand (not "Generic" or "N/A")
-4. Include part number if it's real (not "Not visible" or "N/A")
-5. Be specific but concise (3-6 words maximum)
-6. Focus on what the part actually is, not generic terms
+1. MUST include the appliance type (dishwasher, refrigerator, dryer, washer, oven, etc.) if identifiable
+2. Use only the most important identifying information
+3. Make it sound natural and human-like
+4. Include brand if it's a real brand (not "Generic" or "N/A")
+5. Include part number if it's real (not "Not visible" or "N/A")
+6. Be specific but concise (4-7 words maximum)
+7. Format: [Brand] [Appliance Type] [Part Name] [Part Number]
 
 Examples of GOOD queries:
 - "Whirlpool dishwasher door seal WPW10300924"
-- "GE refrigerator water filter"
+- "GE refrigerator water filter EDR4RXD1"
 - "Maytag dryer heating element"
-- "KitchenAid mixer bowl"
+- "Samsung washer drain pump"
+- "Bosch dishwasher spray arm"
+- "Frigidaire oven heating element"
 
 Examples of BAD queries:
-- "appliance replacement part"
-- "generic part for appliance"
-- "drain hose responsible appliance part"
+- "door seal WPW10300924" (missing appliance type)
+- "appliance replacement part" (too generic)
+- "generic part for appliance" (no specifics)
 
 Generate only the search query, nothing else:`;
 
@@ -261,7 +264,29 @@ const generateIntelligentFallbackQuery = (part) => {
   // ENHANCED: Build query components in order of importance
   const queryComponents = [];
 
-  // 1. Brand (if meaningful and real)
+  // ENHANCED: 1. Detect appliance type first (CRITICAL for specificity)
+  let applianceType = null;
+  const content = `${part.name || ''} ${part.description || ''} ${part.category || ''}`.toLowerCase();
+  
+  const applianceTypes = {
+    'dishwasher': ['dishwasher', 'dish washer'],
+    'refrigerator': ['refrigerator', 'fridge', 'freezer', 'ice maker'],
+    'washer': ['washer', 'washing machine', 'wash'],
+    'dryer': ['dryer', 'dry'],
+    'oven': ['oven', 'range', 'stove', 'cooktop'],
+    'microwave': ['microwave'],
+    'garbage disposal': ['garbage disposal', 'disposal'],
+    'water heater': ['water heater', 'heater']
+  };
+  
+  for (const [appliance, keywords] of Object.entries(applianceTypes)) {
+    if (keywords.some(keyword => content.includes(keyword))) {
+      applianceType = appliance;
+      break;
+    }
+  }
+
+  // 2. Brand (if meaningful and real)
   if (isMeaningfulValue(part.brand)) {
     const brand = part.brand.trim();
     // Only include if it's a real brand name
@@ -271,7 +296,12 @@ const generateIntelligentFallbackQuery = (part) => {
     }
   }
 
-  // 2. Specific part name (if meaningful)
+  // 3. Add appliance type (CRITICAL for accuracy)
+  if (applianceType) {
+    queryComponents.push(applianceType);
+  }
+
+  // 4. Specific part name (if meaningful)
   if (isMeaningfulValue(part.name)) {
     const name = part.name.trim();
     // Clean up the name to be more searchable
@@ -286,7 +316,7 @@ const generateIntelligentFallbackQuery = (part) => {
     }
   }
 
-  // 3. Part number (if real)
+  // 5. Part number (if real)
   if (isMeaningfulValue(part.partNumber)) {
     const partNum = part.partNumber.trim();
     // Only include if it looks like a real part number
@@ -298,7 +328,7 @@ const generateIntelligentFallbackQuery = (part) => {
   // ENHANCED: If we have components, create query
   if (queryComponents.length > 0) {
     const query = queryComponents.join(' ');
-    console.log('✅ Generated intelligent query:', query);
+    console.log('✅ Generated intelligent query with appliance type:', query);
     return query;
   }
 
@@ -327,23 +357,49 @@ const generateIntelligentFallbackQuery = (part) => {
     }
   }
 
-  // ENHANCED: Category-based fallback
+  // ENHANCED: Category-based fallback with appliance type detection
   if (isMeaningfulValue(part.category)) {
     const category = part.category.toLowerCase();
+    
+    // Try to detect appliance type from content for category mapping
+    let detectedAppliance = 'appliance';
+    const content = `${part.name || ''} ${part.description || ''} ${part.category || ''}`.toLowerCase();
+    
+    const applianceDetection = {
+      'dishwasher': ['dishwasher', 'dish washer'],
+      'refrigerator': ['refrigerator', 'fridge', 'freezer'],
+      'washer': ['washer', 'washing machine'],
+      'dryer': ['dryer'],
+      'oven': ['oven', 'range', 'stove'],
+      'microwave': ['microwave']
+    };
+    
+    for (const [appliance, keywords] of Object.entries(applianceDetection)) {
+      if (keywords.some(keyword => content.includes(keyword))) {
+        detectedAppliance = appliance;
+        break;
+      }
+    }
+    
     const categoryMappings = {
-      'seals & gaskets': 'appliance door seal',
-      'filters': 'appliance water filter',
-      'heating elements': 'appliance heating element',
-      'motors': 'appliance motor',
-      'pumps': 'appliance pump',
-      'switches': 'appliance switch',
-      'belts': 'appliance belt',
-      'hoses': 'appliance hose'
+      'seals & gaskets': `${detectedAppliance} door seal`,
+      'door seals & gaskets': `${detectedAppliance} door seal`,
+      'filters': `${detectedAppliance} water filter`,
+      'water filters': `${detectedAppliance} water filter`,
+      'heating elements': `${detectedAppliance} heating element`,
+      'motors & pumps': `${detectedAppliance} motor pump`,
+      'motors': `${detectedAppliance} motor`,
+      'pumps': `${detectedAppliance} pump`,
+      'switches & controls': `${detectedAppliance} switch`,
+      'switches': `${detectedAppliance} switch`,
+      'belts & hoses': `${detectedAppliance} belt hose`,
+      'belts': `${detectedAppliance} belt`,
+      'hoses': `${detectedAppliance} hose`
     };
     
     const mappedQuery = categoryMappings[category];
     if (mappedQuery) {
-      console.log('✅ Generated category-based query:', mappedQuery);
+      console.log('✅ Generated category-based query with appliance type:', mappedQuery);
       return mappedQuery;
     }
   }
