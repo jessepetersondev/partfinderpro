@@ -355,7 +355,7 @@ const generateIntelligentFallbackQuery = (part) => {
   }
 
   // ENHANCED: PRIORITY 2 - Build query from individual components only if description fails
-  const queryComponents = [];
+  //const queryComponents = [];
 
   // 1. Brand (if meaningful and real)
   if (isMeaningfulValue(part.brand)) {
