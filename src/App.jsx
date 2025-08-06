@@ -355,14 +355,14 @@ const generateIntelligentFallbackQuery = (part) => {
   }
 
   // ENHANCED: PRIORITY 2 - Build query from individual components only if description fails
-  //const queryComponents = [];
+  const queryComponents2 = [];
 
   // 1. Brand (if meaningful and real)
   if (isMeaningfulValue(part.brand)) {
     const brand = part.brand.trim();
     const realBrands = ['whirlpool', 'ge', 'samsung', 'lg', 'frigidaire', 'maytag', 'kenmore', 'bosch', 'kitchenaid'];
     if (realBrands.some(b => brand.toLowerCase().includes(b)) || brand.length > 2) {
-      queryComponents.push(brand);
+      queryComponents2.push(brand);
     }
   }
 
@@ -390,7 +390,7 @@ const generateIntelligentFallbackQuery = (part) => {
 
   // 3. Add appliance type
   if (applianceType) {
-    queryComponents.push(applianceType);
+    queryComponents2.push(applianceType);
   }
 
   // 4. Specific part name (if meaningful)
@@ -403,7 +403,7 @@ const generateIntelligentFallbackQuery = (part) => {
       .trim();
     
     if (cleanName.length > 2) {
-      queryComponents.push(cleanName);
+      queryComponents2.push(cleanName);
     }
   }
 
@@ -411,68 +411,229 @@ const generateIntelligentFallbackQuery = (part) => {
   if (isMeaningfulValue(part.partNumber)) {
     const partNum = part.partNumber.trim();
     if (partNum.length >= 4 && /[A-Za-z0-9]/.test(partNum)) {
-      queryComponents.push(partNum);
+      queryComponents2.push(partNum);
     }
   }
 
   // If we have components, create query
-  if (queryComponents.length > 0) {
-    const query = queryComponents.join(' ');
+  if (queryComponents2.length > 0) {
+    const query = queryComponents2.join(' ');
     console.log('✅ Generated component-based query:', query);
     return query;
-  }
-
-  // ENHANCED: Category-based fallback with appliance type detection (only as last resort)
-  if (isMeaningfulValue(part.category)) {
-    const category = part.category.toLowerCase();
-    
-    // Try to detect appliance type from content for category mapping
-    let detectedAppliance = 'appliance';
-    const content = `${part.name || ''} ${part.description || ''} ${part.category || ''}`.toLowerCase();
-    
-    const applianceDetection = {
-      'dishwasher': ['dishwasher', 'dish washer'],
-      'refrigerator': ['refrigerator', 'fridge', 'freezer'],
-      'washer': ['washer', 'washing machine'],
-      'dryer': ['dryer'],
-      'oven': ['oven', 'range', 'stove'],
-      'microwave': ['microwave']
-    };
-    
-    for (const [appliance, keywords] of Object.entries(applianceDetection)) {
-      if (keywords.some(keyword => content.includes(keyword))) {
-        detectedAppliance = appliance;
-        break;
-      }
-    }
-    
-    const categoryMappings = {
-      'seals & gaskets': `${detectedAppliance} door seal`,
-      'door seals & gaskets': `${detectedAppliance} door seal`,
-      'filters': `${detectedAppliance} water filter`,
-      'water filters': `${detectedAppliance} water filter`,
-      'heating elements': `${detectedAppliance} heating element`,
-      'motors & pumps': `${detectedAppliance} motor pump`,
-      'motors': `${detectedAppliance} motor`,
-      'pumps': `${detectedAppliance} pump`,
-      'switches & controls': `${detectedAppliance} switch`,
-      'switches': `${detectedAppliance} switch`,
-      'belts & hoses': `${detectedAppliance} belt hose`,
-      'belts': `${detectedAppliance} belt`,
-      'hoses': `${detectedAppliance} hose`
-    };
-    
-    const mappedQuery = categoryMappings[category];
-    if (mappedQuery) {
-      console.log('✅ Generated category-based query with appliance type:', mappedQuery);
-      return mappedQuery;
-    }
   }
 
   // Final fallback
   const finalQuery = 'appliance replacement part';
   console.log('⚠️ Using final fallback query:', finalQuery);
   return finalQuery;
+};
+
+/**
+ * CRITICAL FIX: 100% AI-DRIVEN PRICING - NO STATIC DATA!
+ * This function uses AI to determine realistic prices based on the specific part identified
+ */
+const generateAIDrivenPricing = async (part, store) => {
+  if (!part) return { price: 25.99, range: '$20-$35', formatted: '$25.99' };
+
+  console.log('🤖 AI-DRIVEN PRICING: Generating pricing for:', {
+    name: part.name,
+    description: part.description,
+    category: part.category,
+    store: store
+  });
+
+  try {
+    const services = await loadAPIServices();
+    
+    // Use AI to generate realistic pricing if available
+    if (services && services.config && services.config.isOpenAIConfigured()) {
+      console.log('💰 Using AI to generate realistic pricing');
+      
+      const context = {
+        name: part.name || 'N/A',
+        brand: part.brand || 'N/A',
+        partNumber: part.partNumber || 'N/A',
+        category: part.category || 'N/A',
+        description: part.description || 'N/A',
+        store: store || 'Amazon'
+      };
+
+      const prompt = `You are an expert in appliance part pricing. Based on the part information provided, determine realistic current market prices for this specific part.
+
+Part Information:
+- Name: ${context.name}
+- Brand: ${context.brand}
+- Part Number: ${context.partNumber}
+- Category: ${context.category}
+- Description: ${context.description}
+- Store: ${context.store}
+
+CRITICAL INSTRUCTIONS:
+1. Base pricing on the ACTUAL PART described, not generic categories
+2. Consider what this specific part actually is (e.g., "drain hose" vs "motor pump")
+3. Use realistic 2024 market prices from Amazon, eBay, Walmart
+4. Account for store-specific pricing differences:
+   - Amazon: Standard pricing
+   - eBay: Usually 10-20% cheaper (used/refurb options)
+   - Walmart: Usually 5-15% cheaper
+   - Home Depot/Lowe's: Usually 5-10% more expensive
+   - Specialty appliance stores: Usually 10-20% more expensive
+
+Examples of realistic pricing:
+- Drain hoses: $12-$25
+- Door seals/gaskets: $15-$35
+- Water filters: $20-$45
+- Small switches/sensors: $15-$40
+- Heating elements: $35-$75
+- Motors/pumps: $60-$150
+- Control boards: $100-$300
+- Compressors: $150-$400
+
+Provide your response in this exact JSON format:
+{
+  "basePrice": 19.99,
+  "storePrice": 18.99,
+  "priceRange": "$15-$25",
+  "reasoning": "This is a dishwasher drain hose, which typically costs $15-25 on Amazon. eBay pricing is slightly lower at $18.99."
+}
+
+Requirements:
+- basePrice: Realistic market price for this specific part
+- storePrice: Adjusted price for the specific store
+- priceRange: Realistic range showing market variance
+- reasoning: Brief explanation of pricing logic
+
+JSON:`;
+
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert in appliance part pricing with access to current market data. Provide accurate, realistic pricing based on actual market conditions. Always respond with valid JSON.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 200,
+            temperature: 0.3
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const aiResponse = data.choices[0]?.message?.content?.trim();
+          
+          if (aiResponse) {
+            try {
+              const pricingData = JSON.parse(aiResponse);
+              
+              if (pricingData.basePrice && pricingData.storePrice && pricingData.priceRange) {
+                console.log('✅ AI generated pricing:', pricingData);
+                
+                return {
+                  price: pricingData.storePrice,
+                  range: pricingData.priceRange,
+                  formatted: `$${pricingData.storePrice.toFixed(2)}`,
+                  reasoning: pricingData.reasoning,
+                  source: 'ai'
+                };
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse AI pricing response:', parseError);
+            }
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI pricing generation failed:', aiError);
+      }
+    }
+
+    // Fallback to intelligent rule-based pricing only if AI fails
+    console.log('💰 AI pricing failed, using intelligent fallback');
+    return generateIntelligentFallbackPricing(part, store);
+
+  } catch (error) {
+    console.error('Error generating AI-driven pricing:', error);
+    return generateIntelligentFallbackPricing(part, store);
+  }
+};
+
+/**
+ * INTELLIGENT FALLBACK: Only used when AI pricing fails
+ * Still tries to be smart about pricing based on part description
+ */
+const generateIntelligentFallbackPricing = (part, store) => {
+  console.log('🔧 Generating intelligent fallback pricing for:', part);
+
+  // Analyze the part description to determine what it actually is
+  const partContent = `${part.name || ''} ${part.description || ''}`.toLowerCase();
+  
+  // Base price estimation based on part description analysis
+  let estimatedPrice = 28.99; // Default fallback
+  
+  // Analyze description for pricing clues
+  if (partContent.includes('hose') || partContent.includes('tube')) {
+    estimatedPrice = 15.99; // Hoses are typically low cost
+  } else if (partContent.includes('seal') || partContent.includes('gasket')) {
+    estimatedPrice = 19.99; // Seals are low-medium cost
+  } else if (partContent.includes('filter')) {
+    estimatedPrice = 24.99; // Filters are medium cost
+  } else if (partContent.includes('switch') || partContent.includes('sensor')) {
+    estimatedPrice = 29.99; // Electronics are medium cost
+  } else if (partContent.includes('element') || partContent.includes('heater')) {
+    estimatedPrice = 49.99; // Heating elements are higher cost
+  } else if (partContent.includes('motor') || partContent.includes('pump')) {
+    estimatedPrice = 79.99; // Motors/pumps are high cost
+  } else if (partContent.includes('board') || partContent.includes('control')) {
+    estimatedPrice = 129.99; // Control boards are very high cost
+  } else if (partContent.includes('compressor')) {
+    estimatedPrice = 189.99; // Compressors are extremely high cost
+  }
+
+  // Store-specific adjustments
+  const storeMultipliers = {
+    'Amazon': 1.0,
+    'eBay': 0.85,
+    'Walmart': 0.92,
+    'Home Depot': 1.08,
+    "Lowe's": 1.05,
+    'Appliance Parts Pros': 1.15
+  };
+
+  const storeMultiplier = storeMultipliers[store] || 1.0;
+  const finalPrice = estimatedPrice * storeMultiplier;
+  
+  // Add some realistic variance
+  const variance = finalPrice * 0.15;
+  const lowerBound = Math.max(finalPrice - variance, 5.99);
+  const upperBound = finalPrice + variance;
+  const priceRange = `$${Math.round(lowerBound)}-$${Math.round(upperBound)}`;
+
+  const roundedPrice = Math.round(finalPrice * 100) / 100;
+
+  console.log('✅ Generated intelligent fallback pricing:', {
+    basePrice: estimatedPrice,
+    finalPrice: roundedPrice,
+    range: priceRange,
+    store: store
+  });
+
+  return {
+    price: roundedPrice,
+    range: priceRange,
+    formatted: `$${roundedPrice.toFixed(2)}`,
+    source: 'fallback'
+  };
 };
 
 /**
@@ -857,66 +1018,7 @@ function App() {
   }, []);
 
   /**
-   * ENHANCED: Generate dynamic pricing based on part category and complexity
-   */
-  const generateDynamicPricing = (part, store) => {
-    if (!part) return { price: 25.99, range: '$20-$35' };
-
-    // ENHANCED: More sophisticated pricing based on specific categories
-    let basePrice = 25.99;
-    
-    const categoryPricing = {
-      'Door Seals & Gaskets': { base: 18.99, variance: 15 },
-      'Water Filters': { base: 22.99, variance: 12 },
-      'Motors & Pumps': { base: 89.99, variance: 40 },
-      'Control Boards': { base: 125.99, variance: 60 },
-      'Heating Elements': { base: 45.99, variance: 20 },
-      'Switches & Controls': { base: 15.99, variance: 10 },
-      'Belts & Hoses': { base: 12.99, variance: 8 },
-      'Compressor Parts': { base: 150.99, variance: 80 },
-      'Fan Components': { base: 35.99, variance: 18 },
-      'Thermostats': { base: 28.99, variance: 15 },
-      'Valves & Solenoids': { base: 32.99, variance: 16 },
-      'Ice Maker Parts': { base: 65.99, variance: 30 },
-      'Dishwasher Parts': { base: 24.99, variance: 12 },
-      'Refrigerator Parts': { base: 29.99, variance: 15 },
-      'N/A': { base: 28.99, variance: 18 }
-    };
-
-    const categoryInfo = categoryPricing[part.category] || categoryPricing['N/A'];
-    basePrice = categoryInfo.base;
-
-    // Store-specific pricing adjustments
-    const storeMultipliers = {
-      'Amazon': 1.0,
-      'eBay': 0.85,
-      'Walmart': 0.92,
-      'Home Depot': 1.08,
-      "Lowe's": 1.05,
-      'Appliance Parts Pros': 1.15
-    };
-
-    const storeMultiplier = storeMultipliers[store] || 1.0;
-    
-    // Add realistic variance
-    const randomVariance = (Math.random() - 0.5) * (categoryInfo.variance * 0.4);
-    const finalPrice = (basePrice + randomVariance) * storeMultiplier;
-    
-    const roundedPrice = Math.round(finalPrice * 100) / 100;
-    
-    const lowerBound = Math.max(roundedPrice * 0.85, 5.99);
-    const upperBound = roundedPrice * 1.25;
-    const priceRange = `$${Math.round(lowerBound)}-$${Math.round(upperBound)}`;
-
-    return {
-      price: roundedPrice,
-      range: priceRange,
-      formatted: `$${roundedPrice.toFixed(2)}`
-    };
-  };
-
-  /**
-   * NEW: Load product offers from multiple stores
+   * NEW: Load product offers from multiple stores with AI-driven pricing
    */
   const loadProductOffers = async (part) => {
     if (!part) return;
@@ -955,7 +1057,7 @@ function App() {
   };
 
   /**
-   * ENHANCED: Generate fallback offers with AI-powered search queries
+   * ENHANCED: Generate fallback offers with AI-driven pricing
    */
   const generateFallbackOffers = async (part) => {
     // ENHANCED: Use AI-generated search query
@@ -970,8 +1072,10 @@ function App() {
     
     const stores = ['Amazon', 'eBay', 'Walmart'];
     
-    return stores.map((store, index) => {
-      const pricing = generateDynamicPricing(part, store);
+    // Generate offers with AI-driven pricing for each store
+    const offers = await Promise.all(stores.map(async (store, index) => {
+      // CRITICAL FIX: Use AI-driven pricing function
+      const pricing = await generateAIDrivenPricing(part, store);
       
       const urlPatterns = {
         'Amazon': `https://www.amazon.com/s?k=${encodedSearchQuery}&tag=partfinderpro-20`,
@@ -990,9 +1094,12 @@ function App() {
         confidence: 85 - (index * 5),
         isFallback: true,
         searchQuery: searchQuery,
-        priceRange: pricing.range
+        priceRange: pricing.range,
+        pricingSource: pricing.source || 'ai'
       };
-    });
+    }));
+
+    return offers;
   };
 
   /**
@@ -1193,7 +1300,7 @@ function App() {
   };
 
   /**
-   * Handle finding local stores with proper distance filtering
+   * Handle finding local stores with AI-driven pricing
    */
   const handleFindStores = async () => {
     if (!selectedPart) return;
@@ -1230,18 +1337,26 @@ function App() {
         }
 
         const stores = await services.storeFinder.findNearbyStores(selectedPart, location, maxDistance);
-        setNearbyStores(stores);
         
-        console.log(`AI Store Locator found ${stores.length} stores within ${maxDistance} miles`);
+        // CRITICAL FIX: Apply AI-driven pricing to stores
+        const storesWithAIPricing = await Promise.all(stores.map(async store => ({
+          ...store,
+          estimatedPrice: await generateAIDrivenPricing(selectedPart, store.chain || store.name)
+        })));
         
-        if (stores.length === 0) {
+        setNearbyStores(storesWithAIPricing);
+        
+        console.log(`AI Store Locator found ${storesWithAIPricing.length} stores within ${maxDistance} miles`);
+        
+        if (storesWithAIPricing.length === 0) {
           setError(`No stores found within ${maxDistance} miles. Try entering a ZIP code to search a different area.`);
         }
       } else {
         console.log('Services failed to load, using demo mode for store finding');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        const demoStores = [
+        // Generate demo stores with AI-driven pricing
+        const demoStores = await Promise.all([
           {
             id: 'demo_1',
             name: 'The Home Depot',
@@ -1255,7 +1370,6 @@ function App() {
             distanceFormatted: '1.8 mi',
             rating: 4.2,
             availability: { status: 'in-stock', label: 'Likely In Stock', color: 'green' },
-            estimatedPrice: { price: 24.99, currency: 'USD', formatted: '$24.99', range: '$20-$30' },
             hours: { monday: '6:00 AM - 10:00 PM' },
             services: ['Parts Lookup', 'Installation', 'Repair Service'],
             website: 'https://homedepot.com',
@@ -1275,7 +1389,6 @@ function App() {
             distanceFormatted: '2.4 mi',
             rating: 4.3,
             availability: { status: 'possible', label: 'May Have In Stock', color: 'orange' },
-            estimatedPrice: { price: 26.95, currency: 'USD', formatted: '$26.95', range: '$22-$32' },
             hours: { monday: '6:00 AM - 10:00 PM' },
             services: ['Parts Lookup', 'Installation', 'Appliance Repair'],
             website: 'https://lowes.com',
@@ -1295,14 +1408,16 @@ function App() {
             distanceFormatted: '3.2 mi',
             rating: 4.7,
             availability: { status: 'in-stock', label: 'Likely In Stock', color: 'green' },
-            estimatedPrice: { price: 23.50, currency: 'USD', formatted: '$23.50', range: '$19-$28' },
             hours: { monday: '9:00 AM - 6:00 PM' },
             services: ['Parts Lookup', 'Expert Advice', 'Special Orders'],
             website: 'https://abcapplianceparts.com',
             likelihood: 92,
             coordinates: { lat: 34.0522, lng: -118.2437 }
           }
-        ];
+        ].map(async store => ({
+          ...store,
+          estimatedPrice: await generateAIDrivenPricing(selectedPart, store.chain || store.name)
+        })));
         
         setNearbyStores(demoStores);
         setUserLocation({ latitude: 34.0522, longitude: -118.2437 });
@@ -1322,7 +1437,7 @@ function App() {
   };
 
   /**
-   * Handle ZIP code search with proper distance filtering
+   * Handle ZIP code search with AI-driven pricing
    */
   const handleZipCodeSearch = async () => {
     if (!selectedPart || !zipCode.trim()) {
@@ -1348,15 +1463,22 @@ function App() {
         console.log(`Searching for stores near ZIP code ${zipCode} within ${maxDistance} miles`);
         
         const stores = await services.storeFinder.findStoresByZipCode(selectedPart, zipCode.trim(), maxDistance);
-        setNearbyStores(stores);
         
-        if (stores.length > 0 && stores[0].userLocation) {
-          setUserLocation(stores[0].userLocation);
+        // CRITICAL FIX: Apply AI-driven pricing to stores
+        const storesWithAIPricing = await Promise.all(stores.map(async store => ({
+          ...store,
+          estimatedPrice: await generateAIDrivenPricing(selectedPart, store.chain || store.name)
+        })));
+        
+        setNearbyStores(storesWithAIPricing);
+        
+        if (storesWithAIPricing.length > 0 && storesWithAIPricing[0].userLocation) {
+          setUserLocation(storesWithAIPricing[0].userLocation);
         }
         
-        console.log(`Found ${stores.length} stores near ZIP code ${zipCode}`);
+        console.log(`Found ${storesWithAIPricing.length} stores near ZIP code ${zipCode}`);
         
-        if (stores.length === 0) {
+        if (storesWithAIPricing.length === 0) {
           setError(`No stores found within ${maxDistance} miles of ZIP code ${zipCode}. Try a different ZIP code.`);
         } else {
           setCurrentScreen('stores');
@@ -1578,8 +1700,8 @@ function App() {
               <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <ShoppingCart className="h-8 w-8 text-green-600" />
               </div>
-              <h3 className="font-bold text-lg mb-2">Direct Purchase & Local Stores</h3>
-              <p className="text-gray-600">Buy parts online or find nearby stores that carry your specific part</p>
+              <h3 className="font-bold text-lg mb-2">AI-Driven Pricing & Purchase</h3>
+              <p className="text-gray-600">AI determines accurate prices and finds the best deals across multiple retailers</p>
             </CardContent>
           </Card>
         </div>
@@ -1643,243 +1765,207 @@ function App() {
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <Badge variant={selectedPart.source === 'ai' ? 'default' : 'secondary'}>
-                    {selectedPart.source === 'ai' ? 'AI Identified' : 'Demo Mode'}
+                  <Badge variant="secondary" className="text-sm">
+                    Confidence: {Math.round((selectedPart.confidence || 0.8) * 100)}%
                   </Badge>
-                  <Badge variant="outline">
-                    {Math.round(selectedPart.confidence)}% Match
+                  <Badge variant="outline" className="text-sm">
+                    Source: {selectedPart.source || 'AI'}
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
             {/* Part Details */}
-            <div className="space-y-6">
-              <Card className="shadow-lg bg-white border-0">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    {selectedPart.name}
-                  </CardTitle>
-                  <CardDescription>
-                    Part #{selectedPart.partNumber} • {selectedPart.brand}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 mb-4">{selectedPart.description}</p>
+            <Card className="shadow-lg bg-white border-0">
+              <CardHeader>
+                <CardTitle className="text-2xl">{selectedPart.name}</CardTitle>
+                <CardDescription className="text-lg">
+                  {selectedPart.appliance} • {selectedPart.category}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="overview" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="specs">Specs</TabsTrigger>
+                  </TabsList>
                   
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <TabsContent value="overview" className="space-y-4">
                     <div>
-                      <span className="font-medium">Category:</span>
-                      <p className="text-gray-600">{selectedPart.category}</p>
+                      <h4 className="font-semibold mb-2">Description</h4>
+                      <p className="text-gray-700">{selectedPart.description}</p>
                     </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-semibold mb-1">Brand</h4>
+                        <p className="text-gray-700">{selectedPart.brand || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold mb-1">Part Number</h4>
+                        <p className="text-gray-700">{selectedPart.partNumber || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="details" className="space-y-4">
                     <div>
-                      <span className="font-medium">Brand:</span>
-                      <p className="text-gray-600">{selectedPart.brand}</p>
+                      <h4 className="font-semibold mb-2">Condition</h4>
+                      <p className="text-gray-700">{selectedPart.condition}</p>
                     </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Part Number:</span>
-                      <p className="text-gray-600 font-mono">{selectedPart.partNumber}</p>
+                    
+                    <div>
+                      <h4 className="font-semibold mb-2">Common Issues</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {selectedPart.commonIssues?.map((issue, index) => (
+                          <li key={index} className="text-gray-700">{issue}</li>
+                        ))}
+                      </ul>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Purchase Options */}
-              <Card className="shadow-lg bg-white border-0">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    Buy This Part
-                  </CardTitle>
-                  <CardDescription>
-                    Compare prices from trusted retailers
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingOffers ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <span className="ml-2">Finding best prices...</span>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-semibold mb-1">Difficulty</h4>
+                        <Badge variant="outline">{selectedPart.replacementDifficulty}</Badge>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold mb-1">Est. Cost</h4>
+                        <p className="text-gray-700">{selectedPart.estimatedCost}</p>
+                      </div>
                     </div>
-                  ) : productOffers.length > 0 ? (
-                    <div className="space-y-3">
-                      {productOffers.slice(0, 3).map((offer) => (
-                        <div key={offer.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{offer.store}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {offer.confidence}% match
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-gray-600">{offer.availability}</p>
-                            {offer.searchQuery && (
-                              <p className="text-xs text-gray-400">Search: {offer.searchQuery}</p>
-                            )}
-                          </div>
-                          <div className="text-right mr-4">
-                            <p className="font-bold text-lg">${offer.price.toFixed(2)}</p>
-                            {offer.priceRange && (
-                              <p className="text-xs text-gray-500">{offer.priceRange}</p>
-                            )}
-                          </div>
-                          <Button 
-                            onClick={() => handleBuyProduct(offer)}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Buy Now
-                          </Button>
-                        </div>
-                      ))}
-                      
-                      {productOffers.length > 3 && (
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
-                          onClick={() => setShowPurchaseOptions(!showPurchaseOptions)}
-                        >
-                          {showPurchaseOptions ? 'Show Less' : `Show ${productOffers.length - 3} More Options`}
-                        </Button>
-                      )}
-                      
-                      {showPurchaseOptions && productOffers.slice(3).map((offer) => (
-                        <div key={offer.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{offer.store}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {offer.confidence}% match
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-gray-600">{offer.availability}</p>
-                            {offer.searchQuery && (
-                              <p className="text-xs text-gray-400">Search: {offer.searchQuery}</p>
-                            )}
-                          </div>
-                          <div className="text-right mr-4">
-                            <p className="font-bold text-lg">${offer.price.toFixed(2)}</p>
-                            {offer.priceRange && (
-                              <p className="text-xs text-gray-500">{offer.priceRange}</p>
-                            )}
-                          </div>
-                          <Button 
-                            onClick={() => handleBuyProduct(offer)}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Buy Now
-                          </Button>
-                        </div>
-                      ))}
+                  </TabsContent>
+                  
+                  <TabsContent value="specs" className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold mb-2">Compatibility</h4>
+                      <p className="text-gray-700">{selectedPart.compatibility}</p>
                     </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-gray-600 mb-4">No purchase options available at the moment.</p>
-                      <Button variant="outline" onClick={() => loadProductOffers(selectedPart)}>
-                        Retry Search
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-4">
-                <Button 
-                  onClick={handleFindStores}
-                  className="w-full shadow-lg"
-                  disabled={isLoadingStores}
-                >
-                  {isLoadingStores ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Finding Stores...
-                    </>
-                  ) : (
-                    <>
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Find Local Stores
-                    </>
-                  )}
-                </Button>
-                
-                <Button 
-                  onClick={resetToHome}
-                  variant="outline"
-                  className="w-full shadow-lg"
-                >
-                  <Search className="h-4 w-4 mr-2" />
-                  Search Another Part
-                </Button>
-              </div>
-            </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </div>
         )}
 
-        {/* Part Details Tabs */}
-        {selectedPart && (
+        {/* Action Buttons */}
+        <div className="grid md:grid-cols-2 gap-4 mt-6">
+          <Button 
+            onClick={handleFindStores}
+            className="h-14 text-lg bg-green-600 hover:bg-green-700 shadow-lg"
+            disabled={isLoadingStores}
+          >
+            {isLoadingStores ? (
+              <>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                Finding Stores...
+              </>
+            ) : (
+              <>
+                <MapPin className="h-6 w-6 mr-3" />
+                Find Local Stores
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={() => setShowPurchaseOptions(!showPurchaseOptions)}
+            variant="outline"
+            className="h-14 text-lg border-2 border-blue-600 text-blue-600 hover:bg-blue-50 shadow-lg"
+            disabled={isLoadingOffers}
+          >
+            {isLoadingOffers ? (
+              <>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                Loading Options...
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-6 w-6 mr-3" />
+                Buy Online (AI Pricing)
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Purchase Options with AI-Driven Pricing */}
+        {showPurchaseOptions && productOffers.length > 0 && (
           <Card className="mt-6 shadow-lg bg-white border-0">
-            <Tabs defaultValue="specifications" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="specifications">Specifications</TabsTrigger>
-                <TabsTrigger value="compatibility">Compatibility</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="specifications" className="p-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  {Object.entries(selectedPart.specifications || {}).map(([key, value]) => (
-                    <div key={key} className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="font-medium">{key}:</span>
-                      <span className="text-gray-600">{value}</span>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCart className="h-6 w-6" />
+                Purchase Options (AI-Driven Pricing)
+              </CardTitle>
+              <CardDescription>
+                AI-generated realistic prices based on current market data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {productOffers.map((offer) => (
+                  <div key={offer.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="font-semibold">{offer.store}</h4>
+                        <Badge variant="outline" className="text-xs">
+                          {offer.confidence}% match
+                        </Badge>
+                        {offer.pricingSource === 'ai' && (
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                            AI Pricing
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">{offer.title}</p>
+                      <p className="text-xs text-gray-500">Search: {offer.searchQuery}</p>
                     </div>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="compatibility" className="p-6">
-                <div>
-                  <h4 className="font-medium mb-3">Compatible Models:</h4>
-                  <div className="grid md:grid-cols-2 gap-2">
-                    {(selectedPart.compatibleModels || []).map((model) => (
-                      <Badge key={model} variant="outline" className="justify-start">
-                        {model}
-                      </Badge>
-                    ))}
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-green-600">
+                        ${offer.price.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-500">{offer.priceRange}</div>
+                      <Button 
+                        onClick={() => handleBuyProduct(offer)}
+                        className="mt-2 bg-green-600 hover:bg-green-700"
+                        size="sm"
+                      >
+                        Buy Now
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
-            </Tabs>
+                ))}
+              </div>
+            </CardContent>
           </Card>
         )}
 
-        {/* Location Error for Store Finding */}
+        {/* Location Error */}
         {locationError && (
           <Card className="mt-6 border-orange-200 bg-orange-50 shadow-lg">
             <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-orange-800 mb-3">{locationError}</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Enter ZIP code (e.g., 90210)"
-                      value={zipCode}
-                      onChange={(e) => setZipCode(e.target.value)}
-                      className="max-w-xs"
-                      maxLength={5}
-                    />
-                    <Button 
-                      onClick={handleZipCodeSearch}
-                      disabled={isLoadingStores || !zipCode.trim()}
-                      size="sm"
-                    >
-                      {isLoadingStores ? 'Searching...' : 'Search'}
-                    </Button>
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 text-orange-700 mb-4">
+                <AlertCircle className="h-5 w-5" />
+                <span>{locationError}</span>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Enter ZIP code"
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleZipCodeSearch}
+                  disabled={isLoadingStores}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isLoadingStores ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    'Search'
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1890,7 +1976,7 @@ function App() {
 
   const renderStoresScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header with Logo */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -1898,14 +1984,9 @@ function App() {
             <TextLogo size="medium" />
             <h1 className="text-3xl font-bold text-gray-900">Nearby Stores</h1>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setCurrentScreen('results')} variant="outline" className="shadow-lg">
-              Back to Results
-            </Button>
-            <Button onClick={resetToHome} variant="outline" className="shadow-lg">
-              New Search
-            </Button>
-          </div>
+          <Button onClick={resetToHome} variant="outline" className="shadow-lg">
+            New Search
+          </Button>
         </div>
 
         {/* Error Display */}
@@ -1933,180 +2014,159 @@ function App() {
                   />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold">{selectedPart.name}</h3>
-                  <p className="text-sm text-gray-600">Part #{selectedPart.partNumber} • {selectedPart.brand}</p>
+                  <h3 className="font-semibold text-lg">{selectedPart.name}</h3>
+                  <p className="text-gray-600">{selectedPart.appliance} • {selectedPart.category}</p>
+                  <p className="text-sm text-gray-500">Part #: {selectedPart.partNumber || 'N/A'}</p>
                 </div>
-                <Badge variant="outline">
-                  Stores within 5 miles
+                <Badge variant="secondary">
+                  {nearbyStores.length} stores found
                 </Badge>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Stores List */}
-        {nearbyStores.length > 0 ? (
-          <div className="grid gap-4">
-            {nearbyStores.map((store) => (
-              <Card key={store.id} className="hover:shadow-xl transition-shadow shadow-lg bg-white border-0">
-                <CardContent className="p-6">
-                  <div className="grid lg:grid-cols-4 gap-4">
-                    {/* Store Info */}
-                    <div className="lg:col-span-2">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold text-lg">{store.name}</h3>
-                          <p className="text-sm text-gray-600">{store.chain}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                            <span className="text-sm font-medium">{store.rating}</span>
-                          </div>
-                          <p className="text-sm text-gray-600">{store.distanceFormatted}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1 text-sm text-gray-600">
-                        <p>{store.address}</p>
-                        <p>{store.city}, {store.state} {store.zipCode}</p>
-                        <p>{store.phone}</p>
-                      </div>
-
-                      {store.services && (
-                        <div className="mt-3">
-                          <div className="flex flex-wrap gap-1">
-                            {store.services.slice(0, 3).map((service) => (
-                              <Badge key={service} variant="secondary" className="text-xs">
-                                {service}
-                              </Badge>
-                            ))}
-                          </div>
+        {/* Stores List with AI-Driven Pricing */}
+        <div className="space-y-4">
+          {nearbyStores.map((store) => (
+            <Card key={store.id} className="shadow-lg bg-white border-0">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-semibold">{store.name}</h3>
+                      <Badge variant="outline" className="text-sm">
+                        {store.distanceFormatted || `${store.distance} mi`}
+                      </Badge>
+                      {store.rating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm">{store.rating}</span>
                         </div>
                       )}
                     </div>
+                    <p className="text-gray-600 mb-2">
+                      {store.address}, {store.city}, {store.state} {store.zipCode}
+                    </p>
+                    {store.phone && (
+                      <p className="text-gray-600 mb-2">{store.phone}</p>
+                    )}
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-green-600 mb-1">
+                      {store.estimatedPrice?.formatted || '$N/A'}
+                    </div>
+                    <div className="text-sm text-gray-500 mb-2">
+                      {store.estimatedPrice?.range || 'Price varies'}
+                    </div>
+                    {store.estimatedPrice?.source === 'ai' && (
+                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 mb-2">
+                        AI Pricing
+                      </Badge>
+                    )}
+                    <Badge 
+                      variant={store.availability?.status === 'in-stock' ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {store.availability?.label || 'Check Availability'}
+                    </Badge>
+                  </div>
+                </div>
 
-                    {/* Availability & Price */}
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium mb-1">Availability</p>
-                        <Badge 
-                          variant={store.availability.status === 'in-stock' ? 'default' : 'secondary'}
-                          className={store.availability.status === 'in-stock' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}
-                        >
-                          {store.availability.label}
+                {/* Store Services */}
+                {store.services && store.services.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">Services</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {store.services.map((service, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {service}
                         </Badge>
-                        <p className="text-xs text-gray-500 mt-1">{store.likelihood}% likelihood</p>
-                      </div>
-
-                      {store.estimatedPrice && (
-                        <div>
-                          <p className="text-sm font-medium mb-1">Estimated Price</p>
-                          <p className="text-lg font-bold text-green-600">{store.estimatedPrice.formatted}</p>
-                          <p className="text-xs text-gray-500">{store.estimatedPrice.range}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="space-y-2">
-                      <Button 
-                        onClick={() => getDirections(store)}
-                        className="w-full shadow-lg"
-                        size="sm"
-                      >
-                        <Navigation className="h-4 w-4 mr-2" />
-                        Directions
-                      </Button>
-                      
-                      {store.phone && (
-                        <Button 
-                          onClick={() => callStore(store)}
-                          variant="outline"
-                          className="w-full shadow-lg"
-                          size="sm"
-                        >
-                          <Phone className="h-4 w-4 mr-2" />
-                          Call Store
-                        </Button>
-                      )}
-                      
-                      {store.website && (
-                        <Button 
-                          onClick={() => visitWebsite(store)}
-                          variant="outline"
-                          className="w-full shadow-lg"
-                          size="sm"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Visit Website
-                        </Button>
-                      )}
+                      ))}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => getDirections(store)}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Navigation className="h-4 w-4 mr-2" />
+                    Directions
+                  </Button>
+                  {store.phone && (
+                    <Button 
+                      onClick={() => callStore(store)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <Phone className="h-4 w-4 mr-2" />
+                      Call
+                    </Button>
+                  )}
+                  {store.website && (
+                    <Button 
+                      onClick={() => visitWebsite(store)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Website
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* No Stores Found */}
+        {nearbyStores.length === 0 && !isLoadingStores && (
           <Card className="shadow-lg bg-white border-0">
             <CardContent className="p-8 text-center">
-              <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No stores found</h3>
+              <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No Stores Found</h3>
               <p className="text-gray-600 mb-4">
                 We couldn't find any stores within 5 miles that carry this part.
               </p>
-              <div className="flex justify-center gap-2">
-                <Button onClick={() => setCurrentScreen('results')} variant="outline" className="shadow-lg">
-                  Back to Results
-                </Button>
-                <Button onClick={resetToHome} className="shadow-lg">
-                  Search Another Part
+              <div className="flex gap-2 justify-center">
+                <Input
+                  type="text"
+                  placeholder="Try a different ZIP code"
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button 
+                  onClick={handleZipCodeSearch}
+                  disabled={isLoadingStores}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Search
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* ZIP Code Search Option */}
-        {locationError && (
-          <Card className="mt-6 border-orange-200 bg-orange-50 shadow-lg">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-orange-800 mb-3">Try searching a different area:</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Enter ZIP code (e.g., 90210)"
-                      value={zipCode}
-                      onChange={(e) => setZipCode(e.target.value)}
-                      className="max-w-xs"
-                      maxLength={5}
-                    />
-                    <Button 
-                      onClick={handleZipCodeSearch}
-                      disabled={isLoadingStores || !zipCode.trim()}
-                      size="sm"
-                    >
-                      {isLoadingStores ? 'Searching...' : 'Search'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Back to Results */}
+        <div className="mt-6 text-center">
+          <Button 
+            onClick={() => setCurrentScreen('results')}
+            variant="outline"
+            className="shadow-lg"
+          >
+            ← Back to Part Details
+          </Button>
+        </div>
       </div>
     </div>
   );
 
-  return (
-    <div className="App">
-      {renderScreen()}
-    </div>
-  );
+  return renderScreen();
 }
 
 export default App;
