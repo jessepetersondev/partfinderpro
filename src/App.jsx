@@ -668,24 +668,7 @@ Part Information:
 - Description: ${context.description}
 - Current Category: ${context.currentCategory}
 
-Choose the MOST SPECIFIC category from this list:
-- Door Seals & Gaskets
-- Water Filters
-- Heating Elements
-- Motors & Pumps
-- Control Boards
-- Switches & Controls
-- Belts & Hoses
-- Drain Components
-- Ice Maker Parts
-- Compressor Parts
-- Fan Components
-- Thermostats
-- Valves & Solenoids
-- Dispensers
-- Racks & Accessories
-
-If none fit exactly, create a specific category based on what the part actually is.
+Choose the MOST SPECIFIC category for the part so it is categorized appropriately based on what the part actually is.
 
 Requirements:
 1. Be specific, not generic (avoid "Parts" or "Components")
